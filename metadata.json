@@ -1,0 +1,6 @@
+{
+  "name": "EscalaPro — Gestão de Escalas e Turnos",
+  "description": "Sistema moderno de gestão de escalas 6x2, dimensionamento de tarefas, controle de presença e intervalos de refeição para equipes operacionais.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
