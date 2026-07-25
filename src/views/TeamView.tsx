@@ -74,7 +74,6 @@ export const TeamView: React.FC = () => {
 
   // New break input
   const [newBreakTime, setNewBreakTime] = useState('20:00');
-  const [newBreakCap, setNewBreakCap] = useState(8);
 
   // Absence registration modal state
   const [absenceModalOpen, setAbsenceModalOpen] = useState(false);
@@ -695,21 +694,11 @@ export const TeamView: React.FC = () => {
               className="p-1.5 bg-[var(--paper)] border border-[var(--line)] rounded-lg text-sm font-bold"
             />
           </div>
-          <div>
-            <label className="block text-[11px] font-bold text-[var(--muted)] mb-1">Capacidade Máxima:</label>
-            <input
-              type="number"
-              min={1}
-              value={newBreakCap}
-              onChange={(e) => setNewBreakCap(Number(e.target.value))}
-              className="p-1.5 bg-[var(--paper)] border border-[var(--line)] rounded-lg text-sm font-bold w-24"
-            />
-          </div>
           <button
             onClick={() => {
-              addBreakSlot(newBreakTime, newBreakCap);
+              addBreakSlot(newBreakTime);
             }}
-            className="mt-5 px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1.5"
+            className="mt-5 px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Adicionar Horário</span>
@@ -724,11 +713,12 @@ export const TeamView: React.FC = () => {
             >
               <div>
                 <div className="text-sm font-black text-[var(--ink)]">{b.time}</div>
-                <div className="text-[11px] text-[var(--muted)]">Capacidade: {b.capacity}</div>
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Sem limite</div>
               </div>
               <button
                 onClick={() => deleteBreakSlot(b.id)}
-                className="p-1 text-red-500 hover:text-red-700"
+                className="p-1 text-red-500 hover:text-red-700 cursor-pointer"
+                title="Excluir Horário"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>

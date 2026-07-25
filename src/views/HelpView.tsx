@@ -287,6 +287,18 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
           {/* FAQ list */}
           {[
             {
+              q: 'Como funciona a opção de limpar dados? Os dados da minha planilha no Google Sheets serão apagados?',
+              a: 'Não! Existe uma distinção clara entre os dados locais do navegador e a planilha online do Google Sheets. Ao clicar em "Limpar Dados Locais", a aplicação apaga apenas os cadastros salvos neste navegador local. A planilha no Google Sheets permanece 100% intacta no seu Google Drive, preservando as informações para outros administradores e turnos. Caso queira desvincular a planilha, você pode usar o botão "Desconectar Planilha Online" em Configurações.',
+            },
+            {
+              q: 'O que acontece antes de uma limpeza de dados? É possível recuperar os dados apagados por engano?',
+              a: 'Por precaução e segurança extrema, o EscalaPro grava AUTOMATICAMENTE um backup de emergência em memória/localStorage no instante exato antes de executar qualquer limpeza de dados. Além disso, a notificação de confirmação possui o botão "Restaurar Backup" e, na tela de Configurações, há a opção "Restaurar do Último Backup Automático" com o horário exato e total de colaboradores do registro.',
+            },
+            {
+              q: 'Existe limite máximo de capacidade de pessoas para os horários de intervalo de refeição?',
+              a: 'Não. A capacidade máxima de horários de intervalo para refeição foi totalmente descontinuada. Agora qualquer quantidade de colaboradores pode ser alocada livremente em qualquer horário de almoço cadastrado sem bloqueios ou limites numéricos.',
+            },
+            {
               q: 'O que acontece ao excluir um colaborador? É possível desfazer a ação?',
               a: 'Ao clicar no ícone de exclusão (lixeira), o sistema exibe um alerta de notificação no topo com o botão "Desfazer Exclusão". Além disso, por precaução, o colaborador é movido para a aba "Lixeira / Excluídos" em "Equipe e Cadastros", onde seus dados são mantidos em segurança por 60 dias. Durante esse período de 60 dias, você pode restaurar o colaborador com 1 clique ou optar por excluí-lo definitivamente.',
             },

@@ -37,7 +37,15 @@ export interface BreakSlot {
   id: string;
   time: string; // HH:mm
   shift?: string;
-  capacity: number;
+  capacity?: number; // Opcional - sem limite de capacidade
+}
+
+export interface AutoBackupInfo {
+  timestamp: string;
+  formattedDate: string;
+  reason: string;
+  collaboratorCount: number;
+  taskCount: number;
 }
 
 export interface DailyReport {

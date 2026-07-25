@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AppState, BreakSlot, Collaborator, DeletedCollaborator, OnlineSpreadsheetConfig, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
+import { AppState, AutoBackupInfo, BreakSlot, Collaborator, DeletedCollaborator, OnlineSpreadsheetConfig, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
 import { generateId, isScaleOff, getTodayISO, formatDateBR, getCollaboratorStatus } from '../utils/helpers';
 import { initialAppState } from '../utils/initialData';
 
 const STORAGE_KEY = 'people-scheduler-v3';
+const AUTO_BACKUP_KEY = 'escalapro_auto_backup_v1';
 
 interface AppContextType {
   state: AppState;
@@ -23,7 +24,7 @@ interface AppContextType {
   addTask: (name: string, allowedRoles?: string[], allowedCategories?: string[]) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
   deleteTask: (id: string) => void;
-  addBreakSlot: (time: string, capacity: number, shift?: string) => void;
+  addBreakSlot: (time: string, capacity?: number, shift?: string) => void;
   updateBreakSlot: (id: string, updates: Partial<BreakSlot>) => void;
   deleteBreakSlot: (id: string) => void;
   markDayScale: (dateStr: string, scale: ShiftGroup | '') => void;
@@ -48,6 +49,10 @@ interface AppContextType {
   importRosterRows: (rows: any[]) => number;
   resetAllData: () => void;
   clearSampleData: () => void;
+  lastAutoBackupInfo: AutoBackupInfo | null;
+  createAutoBackup: (reason?: string) => AutoBackupInfo | null;
+  restoreFromAutoBackup: () => boolean;
+  disconnectOnlineSpreadsheet: () => void;
   noticeMessage: string | null;
   noticeActionLabel?: string | null;
   onNoticeAction?: (() => void) | null;
@@ -86,11 +91,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     onAction?: (() => void) | null;
   }>({ message: null });
 
+  const [lastAutoBackupInfo, setLastAutoBackupInfo] = useState<AutoBackupInfo | null>(() => {
+    try {
+      const raw = localStorage.getItem(AUTO_BACKUP_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          timestamp: parsed.timestamp || '',
+          formattedDate: parsed.formattedDate || '',
+          reason: parsed.reason || 'Backup Automático',
+          collaboratorCount: parsed.state?.collaborators?.length || 0,
+          taskCount: parsed.state?.tasks?.length || 0,
+        };
+      }
+    } catch {
+      // Fallback
+    }
+    return null;
+  });
+
   const showNotice = (msg: string, actionLabel?: string, onAction?: () => void) => {
     setNoticeState({ message: msg, actionLabel, onAction });
     setTimeout(() => {
       setNoticeState((prev) => (prev.message === msg ? { message: null } : prev));
     }, 7000);
+  };
+
+  const createAutoBackup = (reason: string = 'Backup de Segurança Pré-Limpeza'): AutoBackupInfo | null => {
+    try {
+      const now = new Date();
+      const formattedDate = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      const backupData = {
+        timestamp: now.toISOString(),
+        formattedDate,
+        reason,
+        state,
+      };
+      localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify(backupData));
+      const info: AutoBackupInfo = {
+        timestamp: now.toISOString(),
+        formattedDate,
+        reason,
+        collaboratorCount: state.collaborators.length,
+        taskCount: state.tasks.length,
+      };
+      setLastAutoBackupInfo(info);
+      return info;
+    } catch (e) {
+      console.error('Erro ao criar backup automático:', e);
+      return null;
+    }
+  };
+
+  const restoreFromAutoBackup = (): boolean => {
+    try {
+      const raw = localStorage.getItem(AUTO_BACKUP_KEY);
+      if (!raw) {
+        showNotice('Nenhum backup automático disponível para restauração.');
+        return false;
+      }
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.state) {
+        setState(parsed.state);
+        showNotice(`Dados restaurados com sucesso do backup automático de ${parsed.formattedDate || 'data anterior'}!`);
+        return true;
+      }
+    } catch (e) {
+      console.error('Erro ao restaurar do backup automático:', e);
+      showNotice('Erro ao tentar restaurar os dados do backup automático.');
+    }
+    return false;
+  };
+
+  const disconnectOnlineSpreadsheet = () => {
+    setState((prev) => ({
+      ...prev,
+      onlineSpreadsheet: null,
+    }));
+    showNotice('Sincronização com a Planilha Online desconectada. Seus dados locais continuam preservados.');
   };
 
   // Save state to localStorage whenever state changes
@@ -349,12 +427,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotice('Tarefa excluída.');
   };
 
-  const addBreakSlot = (time: string, capacity: number, shift?: string) => {
+  const addBreakSlot = (time: string, capacity?: number, shift?: string) => {
     const newSlot: BreakSlot = {
       id: generateId(),
       time: time || '20:00',
       shift: shift || state.teamShift || 'T2',
-      capacity: Math.max(1, capacity || 1),
+      capacity: capacity || undefined,
     };
     setState((prev) => ({
       ...prev,
@@ -812,12 +890,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const resetAllData = () => {
+    // Automatically create a backup snapshot before resetting
+    const backupInfo = createAutoBackup('Backup de emergência automático pré-reset');
+
     localStorage.removeItem(STORAGE_KEY);
     setState({
       ...initialAppState,
       selectedDate: getTodayISO(),
     });
-    showNotice('Todos os dados foram completamente resetados.');
+
+    const timeDetail = backupInfo ? ` (Backup automático gravado às ${backupInfo.formattedDate})` : '';
+    showNotice(
+      `Dados locais da aplicação limpos com sucesso!${timeDetail}. Seus dados de planilha online foram preservados.`,
+      'Restaurar Backup',
+      () => restoreFromAutoBackup()
+    );
   };
 
   const clearSampleData = () => {
@@ -1007,6 +1094,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         importRosterRows,
         resetAllData,
         clearSampleData,
+        lastAutoBackupInfo,
+        createAutoBackup,
+        restoreFromAutoBackup,
+        disconnectOnlineSpreadsheet,
         noticeMessage: noticeState.message,
         noticeActionLabel: noticeState.actionLabel,
         onNoticeAction: noticeState.onAction,

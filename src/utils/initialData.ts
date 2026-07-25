@@ -212,11 +212,11 @@ export const initialAppState: AppState = {
     }
   ],
   breaks: [
-    { id: 'break_1', time: '09:00', shift: 'T1', capacity: 3 },
-    { id: 'break_2', time: '15:00', shift: 'T2', capacity: 3 },
-    { id: 'break_3', time: '21:00', shift: 'T3', capacity: 3 },
-    { id: 'break_4', time: '03:00', shift: 'T4', capacity: 3 },
-    { id: 'break_5', time: '07:00', shift: 'T5', capacity: 3 }
+    { id: 'break_1', time: '09:00', shift: 'T1' },
+    { id: 'break_2', time: '15:00', shift: 'T2' },
+    { id: 'break_3', time: '21:00', shift: 'T3' },
+    { id: 'break_4', time: '03:00', shift: 'T4' },
+    { id: 'break_5', time: '07:00', shift: 'T5' }
   ],
   attendance: {},
   intervals: {

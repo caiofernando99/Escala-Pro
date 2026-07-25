@@ -16,6 +16,11 @@ import {
   RefreshCw,
   ExternalLink,
   CheckCircle2,
+  ShieldCheck,
+  RotateCcw,
+  History,
+  Info,
+  AlertTriangle,
 } from 'lucide-react';
 import { ThemeOption } from '../types';
 import { BRAND_OPTIONS, DEFAULT_BRAND } from '../utils/brands';
@@ -32,6 +37,10 @@ export const SettingsView: React.FC = () => {
     syncToOnlineSpreadsheet,
     exportLocalSpreadsheet,
     generateTemplateSpreadsheet,
+    lastAutoBackupInfo,
+    createAutoBackup,
+    restoreFromAutoBackup,
+    disconnectOnlineSpreadsheet,
   } = useApp();
 
   const [resetModalOpen, setResetModalOpen] = useState(false);
@@ -436,20 +445,81 @@ export const SettingsView: React.FC = () => {
         )}
       </div>
 
-      {/* Export & Import Backup Section */}
+      {/* Backup Automático e Proteção de Dados */}
+      <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-400 dark:border-emerald-700 p-6 rounded-2xl space-y-4 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 text-emerald-950 dark:text-emerald-100 font-extrabold text-sm">
+            <ShieldCheck className="w-5 h-5 text-emerald-700 dark:text-emerald-400 shrink-0" />
+            <span>Sistema de Proteção e Backup Automático do EscalaPro</span>
+          </div>
+          <span className="px-2.5 py-1 bg-emerald-200 dark:bg-emerald-900 text-emerald-950 dark:text-emerald-100 text-[10px] font-black rounded-full uppercase tracking-wider border border-emerald-300 dark:border-emerald-700">
+            Proteção Ativa
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-900 dark:text-slate-100 leading-relaxed max-w-3xl font-medium">
+          Por precaução e segurança contra perdas acidentais, a aplicação cria um <strong className="text-emerald-900 dark:text-emerald-200 font-extrabold">backup automático de emergência</strong> imediatamente antes de qualquer limpeza de dados. Você também pode criar cópias manuais ou restaurar o estado salvo a qualquer momento.
+        </p>
+
+        {lastAutoBackupInfo ? (
+          <div className="bg-[var(--paper)] border-2 border-emerald-500/50 p-4 rounded-xl space-y-2 text-xs shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 font-black text-[var(--ink)]">
+              <span className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                <History className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Último Backup Automático: {lastAutoBackupInfo.formattedDate}</span>
+              </span>
+              <span className="text-[var(--ink)] font-bold">
+                {lastAutoBackupInfo.collaboratorCount} pessoas • {lastAutoBackupInfo.taskCount} tarefas
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--ink)] opacity-90 font-medium italic">
+              Motivo do registro: {lastAutoBackupInfo.reason}
+            </p>
+
+            <div className="pt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={restoreFromAutoBackup}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-black rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Restaurar do Último Backup Automático</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                const info = createAutoBackup('Backup manual gerado via Configurações');
+                if (info) {
+                  showNotice(`Backup automático gerado com sucesso às ${info.formattedDate}!`);
+                }
+              }}
+              className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-black rounded-xl shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Gerar Backup de Emergência Agora</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Export & Import Backup Section (JSON) */}
       <div className="bg-[var(--paper)] border border-[var(--line)] p-6 rounded-2xl space-y-4">
         <div className="flex items-center gap-2 text-[var(--primary)] font-bold text-sm">
           <Database className="w-5 h-5" />
-          <h3 className="text-base text-[var(--ink)]">Exportar e Importar Configurações (Backup)</h3>
+          <h3 className="text-base text-[var(--ink)]">Exportar e Importar Cópia Completa (.JSON)</h3>
         </div>
         <p className="text-xs text-[var(--muted)]">
-          Faça download de um arquivo JSON contendo todos os dados cadastrados ou restaure uma cópia de segurança.
+          Faça download de um arquivo JSON contendo toda a estrutura cadastrada para transferir de computador ou guardar como cópia externa.
         </p>
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <button
             onClick={handleExportConfig}
-            className="px-4 py-2.5 bg-[var(--primary)] text-white text-xs font-bold rounded-xl hover:bg-[var(--primary-hover)] flex items-center gap-2 shadow-xs transition-colors"
+            className="px-4 py-2.5 bg-[var(--primary)] text-white text-xs font-bold rounded-xl hover:bg-[var(--primary-hover)] flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4" />
             <span>Exportar Configurações JSON</span>
@@ -463,24 +533,69 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Clear All Data Section */}
-      <div className="bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 p-6 rounded-2xl space-y-4">
-        <div className="flex items-center gap-2 text-red-600 font-bold text-sm">
-          <ShieldAlert className="w-5 h-5" />
-          <h3 className="text-base">Zona de Perigo — Limpar Todos os Dados</h3>
+      {/* Clear Data & Online Spreadsheet Distinction Section */}
+      <div className="bg-red-50 dark:bg-red-950/30 border-2 border-red-300 dark:border-red-800 p-6 rounded-2xl space-y-6">
+        <div className="flex items-center gap-2 text-red-700 dark:text-red-300 font-extrabold text-sm border-b border-red-200 dark:border-red-900/50 pb-3">
+          <ShieldAlert className="w-5 h-5 shrink-0" />
+          <h3 className="text-base">Gestão de Limpeza e Distinção de Armazenamento</h3>
         </div>
-        <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed max-w-2xl">
-          Esta ação apaga permanentemente todos os colaboradores, tarefas, calendário de escala, históricos e configurações gravadas neste navegador.
-        </p>
 
-        <div>
-          <button
-            onClick={() => setResetModalOpen(true)}
-            className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>Limpar Todos os Dados da Aplicação</span>
-          </button>
+        {/* Informative Grid: Local vs Online distinction */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Card 1: Local Data */}
+          <div className="bg-[var(--paper)] border-2 border-red-300 dark:border-red-800 p-4 rounded-xl space-y-3 flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-red-800 dark:text-red-300 font-black text-xs uppercase tracking-wider">
+                <Database className="w-4 h-4" />
+                <span>1. Dados Locais do Navegador</span>
+              </div>
+              <p className="text-xs text-[var(--ink)] font-medium leading-relaxed">
+                Apaga os colaboradores, tarefas, presença diária e históricos armazenados <strong className="text-red-900 dark:text-red-200">localmente neste navegador/dispositivo</strong>.
+              </p>
+              <p className="text-xs text-emerald-950 dark:text-emerald-100 font-bold bg-emerald-100 dark:bg-emerald-950/80 p-2.5 rounded-lg border-2 border-emerald-300 dark:border-emerald-700">
+                ✓ Por precaução, um backup automático é gerado antes de limpar, permitindo restauração imediata se necessário.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setResetModalOpen(true)}
+              className="mt-2 w-full px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Limpar Apenas Dados Locais</span>
+            </button>
+          </div>
+
+          {/* Card 2: Online Spreadsheet */}
+          <div className="bg-[var(--paper)] border-2 border-blue-300 dark:border-blue-800 p-4 rounded-xl space-y-3 flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-black text-xs uppercase tracking-wider">
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>2. Planilha Online (Google Sheets)</span>
+              </div>
+              <p className="text-xs text-[var(--ink)] font-medium leading-relaxed">
+                A limpeza de dados locais <strong className="text-blue-900 dark:text-blue-200">NÃO apaga a planilha online no Google Sheets</strong>, protegendo dados de outros usuários e turnos.
+              </p>
+              <p className="text-xs text-blue-950 dark:text-blue-100 font-bold bg-blue-100 dark:bg-blue-950/80 p-2.5 rounded-lg border-2 border-blue-300 dark:border-blue-700">
+                ℹ Para desvincular a planilha online desta aplicação sem apagar dados, use o botão abaixo.
+              </p>
+            </div>
+
+            {state.onlineSpreadsheet ? (
+              <button
+                type="button"
+                onClick={disconnectOnlineSpreadsheet}
+                className="mt-2 w-full px-4 py-2.5 border-2 border-blue-400 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100 hover:bg-blue-100 dark:hover:bg-blue-900 text-xs font-black rounded-xl flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer"
+              >
+                <LinkIcon className="w-4 h-4" />
+                <span>Desconectar Planilha Online</span>
+              </button>
+            ) : (
+              <div className="text-xs text-[var(--muted)] font-bold italic text-center py-2">
+                Nenhuma planilha online vinculada no momento.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -489,9 +604,9 @@ export const SettingsView: React.FC = () => {
         isOpen={resetModalOpen}
         onClose={() => setResetModalOpen(false)}
         onConfirm={resetAllData}
-        title="Redefinir Aplicação Completa"
-        description="Tem certeza de que deseja apagar TODOS os dados da aplicação? Esta ação é irreversível e resetará colaboradores, tarefas, escalas e históricos."
-        confirmText="Limpar Todos os Dados"
+        title="Limpar Dados Locais da Aplicação"
+        description="Tem certeza de que deseja apagar os dados locais armazenados neste navegador? Um backup de emergência será gravado automaticamente antes da limpeza para permitir restauração rápida se necessário."
+        confirmText="Limpar Dados Locais"
         requireKeyword="DELETAR"
       />
     </div>
