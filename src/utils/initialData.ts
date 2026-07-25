@@ -3,18 +3,25 @@ import { generateId, getTodayISO } from './helpers';
 
 export const initialAppState: AppState = {
   brandId: 'escalapro',
-  teamName: 'Operação Logística T2',
-  sector: 'Recebimento & Expedição',
+  teamName: 'Operação Logística Unificada',
+  sector: 'Recebimento, Estoque & Expedição',
   manager: 'Carlos Eduardo Santos',
-  teamShift: 'T2',
-  roles: ['Operador de Processo', 'Analista de Qualidade', 'Líder de Operações', 'Auxiliar de Logística', 'Suporte Técnico'],
-  categories: ['Inbound', 'Outbound', 'ICQA', 'Inventory', 'Packing'],
-  skills: ['Empilhadeira', 'Coletor RF', 'Auditoria ICQA', 'Conferência', 'Paletização'],
+  teamShift: 'Geral',
+  defaultTeamLeader: 'Time do TL Bruno Silva (T1)',
+  teamLeaders: [
+    'Time do TL Bruno Silva (T1)',
+    'Time da TL Mariana Souza (T2)',
+    'Time do TL Marcos Vinicius (T3)',
+    'Time do TL Lucas Andrade (T4)',
+    'Time da TL Patricia Lima (T5)',
+  ],
+  roles: ['REP', 'PS', 'TL'],
+  categories: ['Inventario', 'Qualidade', 'Picking', 'Packing', 'Put-Away'],
+  skills: ['Expert', 'HV', 'OP.Maquina'],
   year: new Date().getFullYear(),
   selectedDate: getTodayISO(),
   theme: 'slate',
   calendar: {
-    // Populate sample 6x2 pattern for the current month
     [getTodayISO()]: 'A',
   },
   collaborators: [
@@ -23,12 +30,13 @@ export const initialAppState: AppState = {
       name: 'Ana Beatris Silva',
       login: 'anabs',
       registration: 'REG-8821',
-      shift: 'T2',
+      shift: 'T1',
       scale: 'A',
-      role: 'Operador de Processo',
-      category: 'Inbound',
-      skills: { 'Coletor RF': 3, 'Conferência': 2 },
-      notes: 'Turno fixo T2',
+      teamLeader: 'Time do TL Bruno Silva (T1)',
+      role: 'REP',
+      category: 'Picking',
+      skills: { 'Expert': 3, 'OP.Maquina': 2 },
+      notes: 'Operadora destaque no Picking T1',
       absences: []
     },
     {
@@ -38,10 +46,11 @@ export const initialAppState: AppState = {
       registration: 'REG-8822',
       shift: 'T2',
       scale: 'B',
-      role: 'Analista de Qualidade',
-      category: 'ICQA',
-      skills: { 'Auditoria ICQA': 3, 'Conferência': 3 },
-      notes: 'Certificado ICQA',
+      teamLeader: 'Time da TL Mariana Souza (T2)',
+      role: 'PS',
+      category: 'Qualidade',
+      skills: { 'HV': 3, 'Expert': 2 },
+      notes: 'Suporte de Processo T2',
       absences: []
     },
     {
@@ -49,19 +58,20 @@ export const initialAppState: AppState = {
       name: 'Camila Rodrigues Lima',
       login: 'camilal',
       registration: 'REG-8823',
-      shift: 'T2',
+      shift: 'T3',
       scale: 'C',
-      role: 'Auxiliar de Logística',
-      category: 'Outbound',
-      skills: { 'Paletização': 2 },
-      notes: 'Férias agendadas em breve',
+      teamLeader: 'Time do TL Marcos Vinicius (T3)',
+      role: 'REP',
+      category: 'Inventario',
+      skills: { 'Expert': 2 },
+      notes: 'Auditora de Inventário T3',
       absences: [
         {
           id: generateId(),
           type: 'ferias',
           startDate: getTodayISO(),
           endDate: getTodayISO(),
-          notes: 'Férias regulamentares de 15 dias'
+          notes: 'Férias regulamentares'
         }
       ]
     },
@@ -70,12 +80,13 @@ export const initialAppState: AppState = {
       name: 'Daniel Costa Ferreira',
       login: 'danielc',
       registration: 'REG-8824',
-      shift: 'T2',
+      shift: 'T4',
       scale: 'D',
-      role: 'Líder de Operações',
-      category: 'Inbound',
-      skills: { 'Empilhadeira': 3, 'Coletor RF': 3 },
-      notes: 'Treinamento de Liderança',
+      teamLeader: 'Time do TL Lucas Andrade (T4)',
+      role: 'REP',
+      category: 'Packing',
+      skills: { 'OP.Maquina': 3, 'HV': 2 },
+      notes: 'Especialista em Embalagens T4',
       absences: []
     },
     {
@@ -83,11 +94,13 @@ export const initialAppState: AppState = {
       name: 'Elena Maria Rocha',
       login: 'elenar',
       registration: 'REG-8825',
-      shift: 'T2',
+      shift: 'T5',
       scale: 'A',
-      role: 'Operador de Processo',
-      category: 'Packing',
-      skills: { 'Coletor RF': 2 },
+      teamLeader: 'Time da TL Patricia Lima (T5)',
+      role: 'PS',
+      category: 'Put-Away',
+      skills: { 'OP.Maquina': 3, 'Expert': 3 },
+      notes: 'Operadora de Trator e Empilhadeira T5',
       absences: []
     },
     {
@@ -95,11 +108,13 @@ export const initialAppState: AppState = {
       name: 'Fernando Augusto Paes',
       login: 'fernandop',
       registration: 'REG-8826',
-      shift: 'T2',
+      shift: 'T1',
       scale: 'B',
-      role: 'Auxiliar de Logística',
-      category: 'Outbound',
-      skills: { 'Paletização': 3 },
+      teamLeader: 'Time do TL Bruno Silva (T1)',
+      role: 'TL',
+      category: 'Inventario',
+      skills: { 'Expert': 3, 'HV': 3 },
+      notes: 'Team Leader de apoio T1',
       absences: []
     },
     {
@@ -109,9 +124,11 @@ export const initialAppState: AppState = {
       registration: 'REG-8827',
       shift: 'T2',
       scale: 'C',
-      role: 'Suporte Técnico',
-      category: 'ICQA',
-      skills: { 'Auditoria ICQA': 2 },
+      teamLeader: 'Time da TL Mariana Souza (T2)',
+      role: 'REP',
+      category: 'Picking',
+      skills: { 'Expert': 2, 'HV': 1 },
+      notes: 'Atua no setor de Picking T2',
       absences: []
     },
     {
@@ -119,58 +136,104 @@ export const initialAppState: AppState = {
       name: 'Heitor Mendonça',
       login: 'heitorm',
       registration: 'REG-8828',
-      shift: 'T2',
+      shift: 'T3',
       scale: 'D',
-      role: 'Operador de Processo',
-      category: 'Inbound',
-      skills: { 'Empilhadeira': 2 },
+      teamLeader: 'Time do TL Marcos Vinicius (T3)',
+      role: 'PS',
+      category: 'Put-Away',
+      skills: { 'OP.Maquina': 3 },
+      notes: 'Operador de Máquinas T3',
+      absences: []
+    },
+    {
+      id: 'col_9',
+      name: 'Igor Rocha Santos',
+      login: 'igors',
+      registration: 'REG-8829',
+      shift: 'T4',
+      scale: 'A',
+      teamLeader: 'Time do TL Lucas Andrade (T4)',
+      role: 'REP',
+      category: 'Qualidade',
+      skills: { 'HV': 3 },
+      notes: 'Conferente de Qualidade T4',
+      absences: []
+    },
+    {
+      id: 'col_10',
+      name: 'Juliana Paiva Lima',
+      login: 'julianap',
+      registration: 'REG-8830',
+      shift: 'T5',
+      scale: 'B',
+      teamLeader: 'Time da TL Patricia Lima (T5)',
+      role: 'REP',
+      category: 'Packing',
+      skills: { 'Expert': 1 },
+      notes: 'Packing e Conferência T5',
       absences: []
     }
   ],
   tasks: [
     {
       id: 'task_1',
-      name: 'Recebimento & Conferência',
-      members: ['col_1', 'col_8'],
-      allowedRoles: ['Operador de Processo', 'Auxiliar de Logística'],
-      allowedCategories: ['Inbound']
+      name: 'Contagem & Inventário',
+      members: ['col_3'],
+      allowedRoles: ['REP', 'PS'],
+      allowedCategories: ['Inventario']
     },
     {
       id: 'task_2',
-      name: 'Qualidade ICQA & Auditoria',
-      members: ['col_2', 'col_7'],
-      allowedRoles: ['Analista de Qualidade', 'Suporte Técnico'],
-      allowedCategories: ['ICQA']
+      name: 'Auditoria de Qualidade',
+      members: ['col_2', 'col_9'],
+      allowedRoles: ['PS', 'TL', 'REP'],
+      allowedCategories: ['Qualidade']
     },
     {
       id: 'task_3',
-      name: 'Embalagem & Packing',
-      members: ['col_5'],
-      allowedRoles: ['Operador de Processo'],
-      allowedCategories: ['Packing']
+      name: 'Coleta & Picking',
+      members: ['col_1', 'col_7'],
+      allowedRoles: ['REP', 'PS'],
+      allowedCategories: ['Picking']
     },
     {
       id: 'task_4',
-      name: 'Expedição & Paletização',
-      members: ['col_6'],
-      allowedRoles: ['Auxiliar de Logística', 'Líder de Operações'],
-      allowedCategories: ['Outbound']
+      name: 'Embalagem & Packing',
+      members: ['col_4', 'col_10'],
+      allowedRoles: ['REP', 'PS'],
+      allowedCategories: ['Packing']
+    },
+    {
+      id: 'task_5',
+      name: 'Armazenagem Put-Away',
+      members: ['col_5', 'col_8'],
+      allowedRoles: ['REP', 'PS', 'TL'],
+      allowedCategories: ['Put-Away']
     }
   ],
   breaks: [
-    { id: 'break_1', time: '19:30', shift: 'T2', capacity: 3 },
-    { id: 'break_2', time: '20:00', shift: 'T2', capacity: 4 },
-    { id: 'break_3', time: '20:30', shift: 'T2', capacity: 4 },
-    { id: 'break_4', time: '21:00', shift: 'T2', capacity: 3 }
+    { id: 'break_1', time: '09:00', shift: 'T1', capacity: 3 },
+    { id: 'break_2', time: '15:00', shift: 'T2', capacity: 3 },
+    { id: 'break_3', time: '21:00', shift: 'T3', capacity: 3 },
+    { id: 'break_4', time: '03:00', shift: 'T4', capacity: 3 },
+    { id: 'break_5', time: '07:00', shift: 'T5', capacity: 3 }
   ],
   attendance: {},
   intervals: {
     [getTodayISO()]: {
-      'break_1': ['col_1', 'col_2'],
-      'break_2': ['col_5', 'col_6'],
-      'break_3': ['col_7', 'col_8']
+      'break_1': ['col_1', 'col_6'],
+      'break_2': ['col_2', 'col_7'],
+      'break_3': ['col_3', 'col_8'],
+      'break_4': ['col_4', 'col_9'],
+      'break_5': ['col_5', 'col_10']
     }
   },
   history: [],
-  dailyReports: {}
+  dailyReports: {},
+  onlineSpreadsheet: {
+    name: 'Planilha Oficial de Escala & Turnos (Google Sheets)',
+    url: 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit',
+    lastSyncedAt: '',
+    syncCount: 0,
+  },
 };

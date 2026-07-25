@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Users,
@@ -11,8 +11,10 @@ import {
   Settings,
   Palmtree,
   UserX,
-  Award,
+  Stethoscope,
   BookOpen,
+  Filter,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface HomeViewProps {
@@ -21,8 +23,35 @@ interface HomeViewProps {
 
 export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
   const { state, setDate } = useApp();
+  const [selectedShift, setSelectedShift] = useState<string>('todos');
+  const [selectedTL, setSelectedTL] = useState<string>('todos');
 
   const activeDate = state.selectedDate;
+
+  // Available unique shifts
+  const defaultShifts = ['Geral', 'T1', 'T2', 'T3', 'T4', 'T5'];
+  const colShifts = state.collaborators.map((c) => c.shift || 'Geral');
+  const availableShifts = Array.from(new Set([...defaultShifts, ...colShifts]));
+
+  // Filter collaborators based on shift and TL
+  const filteredCollaborators = state.collaborators.filter((c) => {
+    const colShift = c.shift || 'Geral';
+    const colTL = c.teamLeader || state.defaultTeamLeader || 'Sem Time';
+
+    const matchesShift = selectedShift === 'todos' || colShift === selectedShift;
+    const matchesTL = selectedTL === 'todos' || colTL === selectedTL;
+
+    return matchesShift && matchesTL;
+  });
+
+  // TLs available for the selected shift
+  const availableTLsForShift = Array.from(
+    new Set(
+      state.collaborators
+        .filter((c) => selectedShift === 'todos' || (c.shift || 'Geral') === selectedShift)
+        .map((c) => c.teamLeader || state.defaultTeamLeader || 'Sem Time')
+    )
+  );
 
   let presentCount = 0;
   let vacationCount = 0;
@@ -30,7 +59,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
   let trainingCount = 0;
   let absentCount = 0;
 
-  state.collaborators.forEach((c) => {
+  filteredCollaborators.forEach((c) => {
     const activeAbsence = (c.absences || []).find((a) => activeDate >= a.startDate && activeDate <= a.endDate);
     if (activeAbsence) {
       if (activeAbsence.type === 'ferias') vacationCount++;
@@ -47,7 +76,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
     }
   });
 
-  const assignedCount = new Set(state.tasks.flatMap((t) => t.members)).size;
+  const filteredIds = new Set(filteredCollaborators.map((c) => c.id));
+  const assignedCount = new Set(state.tasks.flatMap((t) => t.members.filter((m) => filteredIds.has(m)))).size;
 
   const steps = [
     {
@@ -123,6 +153,93 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
+      {/* SELETOR DE IDENTIFICAÇÃO DA EQUIPE E TURNO */}
+      <div className="bg-[var(--paper)] border-2 border-[var(--primary-border)] p-4 rounded-2xl shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-[var(--primary-soft)] text-[var(--primary)] rounded-xl font-bold shrink-0">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-extrabold text-[var(--ink)] flex items-center gap-2">
+                <span>Identificação da Equipe e Turno</span>
+                {selectedShift !== 'todos' && (
+                  <span className="px-2 py-0.5 bg-[var(--primary)] text-white rounded text-[10px] uppercase font-black">
+                    Turno {selectedShift}
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs text-[var(--muted)]">
+                Selecione o seu Turno e o seu Time / TL para filtrar instantaneamente os indicadores e a equipe.
+              </p>
+            </div>
+          </div>
+
+          {(selectedShift !== 'todos' || selectedTL !== 'todos') && (
+            <button
+              onClick={() => {
+                setSelectedShift('todos');
+                setSelectedTL('todos');
+              }}
+              className="px-3 py-1.5 bg-amber-500/10 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20 text-xs font-extrabold rounded-lg transition-colors border border-amber-500/30 self-start sm:self-center cursor-pointer shrink-0"
+            >
+              Limpar Filtros (Ver Toda Operação)
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3 text-xs font-semibold">
+            {/* Seletor de Turno */}
+            <div className="flex items-center gap-2 bg-[var(--bg)] border border-[var(--line)] p-1.5 rounded-xl">
+              <span className="text-[var(--muted)] font-extrabold px-1">Turno:</span>
+              <select
+                value={selectedShift}
+                onChange={(e) => {
+                  setSelectedShift(e.target.value);
+                  setSelectedTL('todos');
+                }}
+                className="bg-[var(--paper)] border border-[var(--line)] rounded-lg px-2.5 py-1 text-[var(--ink)] font-black cursor-pointer focus:ring-1 focus:ring-[var(--primary)]"
+              >
+                <option value="todos">Todos os Turnos</option>
+                {availableShifts.map((s) => (
+                  <option key={s} value={s}>
+                    Turno {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Seletor de Time / TL */}
+            <div className="flex items-center gap-2 bg-[var(--bg)] border border-[var(--line)] p-1.5 rounded-xl">
+              <span className="text-[var(--muted)] font-extrabold px-1">Time / TL:</span>
+              <select
+                value={selectedTL}
+                onChange={(e) => setSelectedTL(e.target.value)}
+                className="bg-[var(--paper)] border border-[var(--line)] rounded-lg px-2.5 py-1 text-[var(--ink)] font-black cursor-pointer focus:ring-1 focus:ring-[var(--primary)]"
+              >
+                <option value="todos">
+                  {selectedShift !== 'todos' ? `Todos os Times do Turno ${selectedShift}` : 'Todos os Times'}
+                </option>
+                {availableTLsForShift.map((tl) => (
+                  <option key={tl} value={tl}>
+                    {tl}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Live badge summary */}
+          <div className="flex items-center gap-2 text-xs font-bold text-[var(--primary)] bg-[var(--primary-soft)] px-3 py-1.5 rounded-xl border border-[var(--primary-border)] shrink-0">
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>
+              Mostrando {filteredCollaborators.length} de {state.collaborators.length} colaboradores
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-[var(--paper)] border-2 border-emerald-300 dark:border-emerald-800 p-4 rounded-xl shadow-xs">
@@ -147,12 +264,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
           <div className="flex items-center justify-between text-amber-800 dark:text-amber-300 font-extrabold mb-1">
             <span className="text-xs uppercase tracking-wider">Licenças / Trein.</span>
             <div className="flex gap-1 text-amber-600 dark:text-amber-400">
-              <Award className="w-4 h-4" />
+              <Stethoscope className="w-4 h-4" />
               <BookOpen className="w-4 h-4" />
             </div>
           </div>
           <div className="text-3xl font-black text-[var(--ink)]">{leaveCount + trainingCount}</div>
-          <p className="text-xs text-[var(--muted)] font-semibold mt-1">Licenças e treinamentos</p>
+          <p className="text-xs text-[var(--muted)] font-semibold mt-1">Afastamento médico / treinamentos</p>
         </div>
 
         <div className="bg-[var(--paper)] border-2 border-red-300 dark:border-red-800 p-4 rounded-xl shadow-xs">

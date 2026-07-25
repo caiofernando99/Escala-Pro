@@ -17,6 +17,7 @@ export interface Collaborator {
   registration?: string;
   shift: string; // T1, T2, T3, T4, T5, Noite, etc.
   scale: ShiftGroup; // A, B, C, D
+  teamLeader?: string; // e.g. "Time do TL Bruno"
   role: string;
   category: string;
   skills?: Record<string, number>; // skillName -> level (0-3)
@@ -69,12 +70,29 @@ export type ThemeOption =
   | 'dark'
   | 'high-contrast';
 
+export interface OnlineSpreadsheetConfig {
+  name: string; // e.g. "Planilha Oficial de Turnos - Logística T2"
+  url: string; // e.g. "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit"
+  webhookUrl?: string; // Optional Google Apps Script Web App / Webhook URL
+  lastSyncedAt?: string; // e.g. "25/07/2026 12:30:00"
+  syncCount?: number;
+}
+
+export interface DeletedCollaborator {
+  id: string;
+  collaborator: Collaborator;
+  deletedAt: string; // ISO date string
+  expiresAt: string; // ISO date string (60 days later)
+}
+
 export interface AppState {
   brandId?: string;
   teamName: string;
   manager: string;
   sector: string;
   teamShift: string;
+  defaultTeamLeader?: string;
+  teamLeaders: string[];
   roles: string[];
   categories: string[];
   skills: string[];
@@ -83,6 +101,7 @@ export interface AppState {
   theme: ThemeOption;
   calendar: Record<string, ShiftGroup>; // YYYY-MM-DD -> ShiftGroup on OFF
   collaborators: Collaborator[];
+  deletedCollaborators?: DeletedCollaborator[];
   tasks: Task[];
   breaks: BreakSlot[];
   attendance: Record<string, Record<string, boolean>>; // date -> collaboratorId -> isPresent (manual override)
@@ -97,4 +116,5 @@ export interface AppState {
     timestamp: string;
   }>;
   dailyReports: Record<string, DailyReport>;
+  onlineSpreadsheet?: OnlineSpreadsheetConfig | null;
 }

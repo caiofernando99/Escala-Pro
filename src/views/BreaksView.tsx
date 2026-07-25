@@ -91,42 +91,22 @@ export const BreaksView: React.FC = () => {
           {state.breaks.map((b) => {
             const assignedList = dayIntervals[b.id] || [];
             const count = assignedList.length;
-            const isOverCap = count > b.capacity;
-            const percentage = Math.min(Math.round((count / (b.capacity || 1)) * 100), 100);
 
             return (
               <div
                 key={b.id}
-                className={`p-3.5 rounded-xl border-2 text-xs flex flex-col justify-between transition-all ${
-                  isOverCap
-                    ? 'bg-red-50 text-red-950 border-red-400 dark:bg-red-950 dark:text-red-100'
-                    : 'bg-[var(--bg)] text-[var(--ink)] border-[var(--line)] hover:border-[var(--primary-border)]'
-                }`}
+                className="p-3.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-[var(--ink)] hover:border-[var(--primary-border)] text-xs flex flex-col justify-between transition-all"
               >
                 <div>
                   <div className="flex items-center justify-between font-extrabold mb-1">
-                    <span className="text-sm">{b.time}</span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] ${
-                        isOverCap
-                          ? 'bg-red-200 text-red-900 font-black'
-                          : 'bg-[var(--paper)] text-[var(--primary)] border border-[var(--line)]'
-                      }`}
-                    >
-                      Cap. {b.capacity}
+                    <span className="text-sm font-black text-[var(--ink)]">{b.time}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--paper)] text-[var(--primary)] border border-[var(--line)] font-bold">
+                      {b.shift || 'Geral'}
                     </span>
                   </div>
-                  <div className="text-xl font-black my-1">
-                    {count} <span className="text-xs font-semibold opacity-75">alocados</span>
+                  <div className="text-xl font-black my-1 text-[var(--primary)]">
+                    {count} <span className="text-xs font-semibold opacity-75 text-[var(--muted)]">alocado{count !== 1 ? 's' : ''}</span>
                   </div>
-                </div>
-
-                {/* Mini progress bar */}
-                <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mt-2">
-                  <div
-                    className={`h-full ${isOverCap ? 'bg-red-600' : 'bg-[var(--primary)]'}`}
-                    style={{ width: `${percentage}%` }}
-                  ></div>
                 </div>
               </div>
             );

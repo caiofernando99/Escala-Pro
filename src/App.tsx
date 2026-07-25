@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { InteractiveEmployeePortal } from './components/InteractiveEmployeePortal';
+import { OnboardingTutorial } from './components/OnboardingTutorial';
 
 import { HomeView } from './views/HomeView';
 import { CalendarView } from './views/CalendarView';
@@ -13,17 +14,41 @@ import { BreaksView } from './views/BreaksView';
 import { ShareView } from './views/ShareView';
 import { ReportView } from './views/ReportView';
 import { SettingsView } from './views/SettingsView';
+import { HelpView } from './views/HelpView';
+
+const TUTORIAL_SEEN_KEY = 'escalapro_tutorial_seen_v1';
 
 const MainLayout: React.FC = () => {
+  const { clearSampleData } = useApp();
   const [currentView, setCurrentView] = useState('home');
   const [isStandalonePortal, setIsStandalonePortal] = useState(false);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('view') === 'employee_portal') {
       setIsStandalonePortal(true);
     }
+
+    // Auto-open tutorial on first visit
+    try {
+      const seen = localStorage.getItem(TUTORIAL_SEEN_KEY);
+      if (!seen) {
+        setIsTutorialOpen(true);
+      }
+    } catch {
+      // Fallback
+    }
   }, []);
+
+  const handleCloseTutorial = () => {
+    setIsTutorialOpen(false);
+    try {
+      localStorage.setItem(TUTORIAL_SEEN_KEY, 'true');
+    } catch {
+      // Fallback
+    }
+  };
 
   if (isStandalonePortal) {
     return (
@@ -56,6 +81,8 @@ const MainLayout: React.FC = () => {
         return 'Relatório Diário Operacional';
       case 'settings':
         return 'Configurações & Temas';
+      case 'help':
+        return 'Ajuda & Guia de Uso';
       default:
         return 'Visão Geral';
     }
@@ -81,6 +108,8 @@ const MainLayout: React.FC = () => {
         return <ReportView />;
       case 'settings':
         return <SettingsView />;
+      case 'help':
+        return <HelpView onOpenTutorial={() => setIsTutorialOpen(true)} />;
       default:
         return <HomeView onNavigate={setCurrentView} />;
     }
@@ -90,11 +119,21 @@ const MainLayout: React.FC = () => {
     <div className="flex min-h-screen bg-[var(--bg)] text-[var(--ink)] transition-colors duration-200">
       <Sidebar currentView={currentView} onNavigate={setCurrentView} />
       <main className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-        <Header pageTitle={getPageTitle(currentView)} />
+        <Header
+          pageTitle={getPageTitle(currentView)}
+          onOpenTutorial={() => setIsTutorialOpen(true)}
+        />
         <div className="p-6 flex-1">
           {renderView()}
         </div>
       </main>
+
+      {/* Onboarding Tutorial Modal */}
+      <OnboardingTutorial
+        isOpen={isTutorialOpen}
+        onClose={handleCloseTutorial}
+        onClearSampleData={clearSampleData}
+      />
     </div>
   );
 };

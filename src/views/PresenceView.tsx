@@ -5,28 +5,34 @@ import {
   CheckCircle2,
   XCircle,
   Palmtree,
-  Award,
+  Stethoscope,
   BookOpen,
   Sun,
   RotateCcw,
   AlertCircle,
 } from 'lucide-react';
-import { getCollaboratorStatus, matchesSearch } from '../utils/helpers';
+import { getCollaboratorStatus, matchesSearch, formatDateBR } from '../utils/helpers';
 
 export const PresenceView: React.FC = () => {
   const { state, toggleAttendance, resetAttendance, setAbsenceReason } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTLFilter, setSelectedTLFilter] = useState<string>('todos');
 
   const activeDate = state.selectedDate;
 
   // Classify all collaborators for current date
-  const classified = state.collaborators.map((col) => {
-    const statusInfo = getCollaboratorStatus(col, activeDate, state);
-    return {
-      collaborator: col,
-      ...statusInfo,
-    };
-  });
+  const classified = state.collaborators
+    .filter((col) => {
+      const colTL = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
+      return selectedTLFilter === 'todos' || colTL === selectedTLFilter;
+    })
+    .map((col) => {
+      const statusInfo = getCollaboratorStatus(col, activeDate, state);
+      return {
+        collaborator: col,
+        ...statusInfo,
+      };
+    });
 
   const presentList = classified.filter((c) => c.status === 'presente');
   const vacationList = classified.filter((c) => c.status === 'ferias');
@@ -50,18 +56,35 @@ export const PresenceView: React.FC = () => {
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[var(--paper)] p-4 rounded-xl border border-[var(--line)]">
         <div>
-          <h3 className="text-lg font-bold text-[var(--ink)]">Presença de Hoje — {activeDate}</h3>
+          <h3 className="text-lg font-bold text-[var(--ink)]">Presença de Hoje — {formatDateBR(activeDate)}</h3>
           <p className="text-xs text-[var(--muted)]">
             Férias, licenças e treinamentos são sinalizados e separados automaticamente das faltas não justificadas.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Team Leader Filter Pill */}
+          <div className="flex items-center gap-1 bg-[var(--bg)] border border-[var(--line)] px-2.5 py-1.5 rounded-lg text-xs font-semibold">
+            <span className="text-[var(--muted)] font-bold">Time / TL:</span>
+            <select
+              value={selectedTLFilter}
+              onChange={(e) => setSelectedTLFilter(e.target.value)}
+              className="bg-transparent text-[var(--ink)] font-bold focus:outline-none cursor-pointer py-0.5"
+            >
+              <option value="todos">Todos os Times</option>
+              {(state.teamLeaders || []).map((tl) => (
+                <option key={tl} value={tl}>
+                  {tl}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <SearchInput
             value={searchTerm}
             onChange={setSearchTerm}
             placeholder="Pesquisar presente ou ausente..."
-            className="w-full md:w-72"
+            className="w-full sm:w-64"
           />
           <button
             onClick={resetAttendance}
@@ -93,8 +116,8 @@ export const PresenceView: React.FC = () => {
 
         <div className="bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100 p-3 rounded-xl border-2 border-amber-400 dark:border-amber-600 shadow-2xs">
           <div className="flex items-center justify-between font-extrabold text-xs">
-            <span>Licenças</span>
-            <Award className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+            <span>Licenças Médicas</span>
+            <Stethoscope className="w-4 h-4 text-amber-700 dark:text-amber-300" />
           </div>
           <div className="text-2xl font-black mt-1 text-amber-950 dark:text-amber-100">{leaveList.length}</div>
         </div>
@@ -191,7 +214,7 @@ export const PresenceView: React.FC = () => {
                       <div className="flex items-center justify-between text-[10px] text-purple-800 dark:text-purple-300 mt-1">
                         <span className="font-semibold uppercase tracking-wider">Férias</span>
                         <span>
-                          {absenceDetail?.startDate} até {absenceDetail?.endDate}
+                          {formatDateBR(absenceDetail?.startDate)} até {formatDateBR(absenceDetail?.endDate)}
                         </span>
                       </div>
                     </div>
@@ -210,7 +233,7 @@ export const PresenceView: React.FC = () => {
                       <div className="flex items-center justify-between text-[10px] mt-1 opacity-90">
                         <span className="font-semibold uppercase tracking-wider">{status}</span>
                         <span>
-                          {absenceDetail?.startDate} até {absenceDetail?.endDate}
+                          {formatDateBR(absenceDetail?.startDate)} até {formatDateBR(absenceDetail?.endDate)}
                         </span>
                       </div>
                     </div>

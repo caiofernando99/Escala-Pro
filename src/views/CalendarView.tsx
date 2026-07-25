@@ -17,7 +17,7 @@ const MONTH_NAMES = [
 ];
 
 export const CalendarView: React.FC = () => {
-  const { state, setYear, markDayScale, generate6x2Scale, setDate, showNotice } = useApp();
+  const { state, setYear, markDayScale, generate6x2Scale, setDate, showNotice, importFullState } = useApp();
   const [selectedOff, setSelectedOff] = useState<ShiftGroup | ''>('A');
 
   const [genModalOpen, setGenModalOpen] = useState(false);
@@ -49,6 +49,34 @@ export const CalendarView: React.FC = () => {
     a.click();
     URL.revokeObjectURL(url);
     showNotice('Calendário exportado.');
+  };
+
+  const handleImportCalendar = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json && typeof json === 'object') {
+          const calendarData = json.calendar || (json.type === 'people-scheduler-calendar' ? json.calendar : null);
+          if (calendarData) {
+            importFullState({
+              calendar: { ...state.calendar, ...calendarData },
+              ...(json.year ? { year: json.year } : {}),
+            });
+            showNotice('Calendário de escala importado com sucesso!');
+          } else {
+            showNotice('Arquivo JSON não possui dados de calendário válidos.');
+          }
+        }
+      } catch (err) {
+        showNotice('Erro ao ler o arquivo JSON de calendário.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const renderMonth = (monthIndex: number) => {
@@ -108,7 +136,17 @@ export const CalendarView: React.FC = () => {
             Selecione a turma em folga e clique nos dias para personalizar, ou gere o ciclo automático para o ano todo.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="px-3 py-1.5 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 text-[var(--ink)] cursor-pointer">
+            <Upload className="w-3.5 h-3.5 text-[var(--muted)]" />
+            <span>Importar JSON</span>
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImportCalendar}
+              className="hidden"
+            />
+          </label>
           <button
             onClick={handleExportCalendar}
             className="px-3 py-1.5 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 text-[var(--ink)]"

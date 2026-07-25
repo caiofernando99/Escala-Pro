@@ -10,16 +10,70 @@ import {
   ShieldAlert,
   Database,
   Sparkles,
-  Award,
+  Stethoscope,
+  FileSpreadsheet,
+  Link as LinkIcon,
+  RefreshCw,
+  ExternalLink,
+  CheckCircle2,
 } from 'lucide-react';
 import { ThemeOption } from '../types';
 import { BRAND_OPTIONS, DEFAULT_BRAND } from '../utils/brands';
 
 export const SettingsView: React.FC = () => {
-  const { state, setTheme, setBrandId, importFullState, resetAllData, showNotice } = useApp();
+  const {
+    state,
+    setTheme,
+    setBrandId,
+    importFullState,
+    resetAllData,
+    showNotice,
+    setOnlineSpreadsheetConfig,
+    syncToOnlineSpreadsheet,
+    exportLocalSpreadsheet,
+    generateTemplateSpreadsheet,
+  } = useApp();
+
   const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [sheetName, setSheetName] = useState(
+    state.onlineSpreadsheet?.name || 'Planilha Oficial de Turnos - Logística T2'
+  );
+  const [sheetUrl, setSheetUrl] = useState(
+    state.onlineSpreadsheet?.url ||
+      'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit'
+  );
+  const [webhookUrl, setWebhookUrl] = useState(
+    state.onlineSpreadsheet?.webhookUrl || ''
+  );
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const activeBrand = BRAND_OPTIONS.find((b) => b.id === state.brandId) || DEFAULT_BRAND;
+
+  const handleSaveSpreadsheetConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sheetName.trim()) {
+      showNotice('Informe o nome da planilha.');
+      return;
+    }
+    if (!sheetUrl.trim()) {
+      showNotice('Informe o link/URL da planilha.');
+      return;
+    }
+
+    setOnlineSpreadsheetConfig({
+      name: sheetName.trim(),
+      url: sheetUrl.trim(),
+      webhookUrl: webhookUrl.trim() || undefined,
+      lastSyncedAt: state.onlineSpreadsheet?.lastSyncedAt || '',
+      syncCount: state.onlineSpreadsheet?.syncCount || 0,
+    });
+  };
+
+  const handleSyncNow = async () => {
+    setIsSyncing(true);
+    await syncToOnlineSpreadsheet();
+    setTimeout(() => setIsSyncing(false), 600);
+  };
 
   const themeOptions: Array<{
     id: ThemeOption;
@@ -229,6 +283,157 @@ export const SettingsView: React.FC = () => {
             );
           })}
         </div>
+      </div>
+
+      {/* Shared Google Sheets Database Integration Section */}
+      <div className="bg-[var(--paper)] border border-[var(--line)] p-6 rounded-2xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center shadow-xs">
+              <FileSpreadsheet className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-extrabold text-[var(--ink)]">
+                  Conectar Planilha Compartilhada (Google Sheets Banco de Dados)
+                </h3>
+                {state.onlineSpreadsheet ? (
+                  <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Conectada
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700 rounded-full text-[10px] font-black uppercase">
+                    Não Conectada
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-[var(--muted)] font-medium">
+                Transforme uma planilha do Google Sheets em seu banco de dados online compartilhado para armazenar e sincronizar as escalas da equipe entre administradores.
+              </p>
+            </div>
+          </div>
+
+          {state.onlineSpreadsheet && (
+            <a
+              href={state.onlineSpreadsheet.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 text-xs font-bold rounded-xl hover:bg-emerald-100 flex items-center gap-1.5 shrink-0"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Abrir no Google Sheets</span>
+            </a>
+          )}
+        </div>
+
+        {/* Form Controls */}
+        <form onSubmit={handleSaveSpreadsheetConfig} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[var(--ink)] uppercase tracking-wider block">
+                Nome da Planilha
+              </label>
+              <input
+                type="text"
+                value={sheetName}
+                onChange={(e) => setSheetName(e.target.value)}
+                placeholder="Ex: Planilha Oficial de Turnos - Logística T2"
+                className="w-full px-3.5 py-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-bold text-[var(--ink)] focus:outline-none focus:border-[var(--primary)]"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[var(--ink)] uppercase tracking-wider block">
+                Link / URL da Planilha (Google Sheets)
+              </label>
+              <div className="relative">
+                <input
+                  type="url"
+                  value={sheetUrl}
+                  onChange={(e) => setSheetUrl(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-[var(--primary)]"
+                  required
+                />
+                <LinkIcon className="w-4 h-4 text-[var(--muted)] absolute left-3 top-3" />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[var(--ink)] uppercase tracking-wider block">
+              URL do Webhook (Google Apps Script Web App — Opcional)
+            </label>
+            <input
+              type="url"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="https://script.google.com/macros/s/.../exec"
+              className="w-full px-3.5 py-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-[var(--primary)]"
+            />
+            <p className="text-[11px] text-[var(--muted)]">
+              Sua equipe pode publicar um Web App simples no Google Apps Script para receber e gravar as alterações diretamente na tabela do Google Sheets.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="submit"
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl flex items-center gap-2 shadow-xs transition-colors"
+              >
+                <Check className="w-4 h-4" />
+                <span>Salvar Configuração da Planilha</span>
+              </button>
+
+              {state.onlineSpreadsheet && (
+                <button
+                  type="button"
+                  onClick={handleSyncNow}
+                  disabled={isSyncing}
+                  className="px-4 py-2.5 bg-[var(--primary)] text-white text-xs font-black rounded-xl hover:bg-[var(--primary-hover)] flex items-center gap-2 shadow-xs transition-colors border border-[var(--primary-border)] disabled:opacity-75"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>
+                    {isSyncing ? 'Sincronizando...' : `Atualizar Dados na Planilha Online (${state.onlineSpreadsheet.name})`}
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={exportLocalSpreadsheet}
+                className="px-3.5 py-2.5 border border-[var(--line)] text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--ink)] flex items-center gap-1.5 transition-colors"
+              >
+                <Download className="w-4 h-4 text-blue-600" />
+                <span>Salvar Planilha Local (.CSV)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={generateTemplateSpreadsheet}
+                className="px-3.5 py-2.5 border border-[var(--line)] text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--ink)] flex items-center gap-1.5 transition-colors"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>Baixar Modelo (.CSV)</span>
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {state.onlineSpreadsheet?.lastSyncedAt && (
+          <div className="bg-[var(--primary-soft)] border border-[var(--primary-border)] p-3.5 rounded-xl text-xs font-extrabold text-[var(--primary)] flex flex-wrap items-center justify-between gap-2">
+            <span>
+              ÚLTIMA SINCRONIZAÇÃO DA BANCO DE DADOS: <strong>{state.onlineSpreadsheet.lastSyncedAt}</strong>
+            </span>
+            <span>
+              TOTAL DE ATUALIZAÇÕES: <strong>{state.onlineSpreadsheet.syncCount || 0} vezes</strong>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Export & Import Backup Section */}

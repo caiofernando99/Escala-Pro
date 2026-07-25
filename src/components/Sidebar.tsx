@@ -9,6 +9,7 @@ import {
   Share2,
   FileText,
   Settings,
+  HelpCircle,
 } from 'lucide-react';
 import { EscalaProLogo } from './EscalaProLogo';
 
@@ -28,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => 
     { id: 'share', label: 'Compartilhar', icon: Share2 },
     { id: 'report', label: 'Relatório diário', icon: FileText },
     { id: 'settings', label: 'Configurações', icon: Settings },
+    { id: 'help', label: 'Ajuda', icon: HelpCircle },
   ];
 
   return (

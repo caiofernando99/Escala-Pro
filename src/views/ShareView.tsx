@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { SearchInput } from '../components/SearchInput';
 import { InteractiveEmployeePortal } from '../components/InteractiveEmployeePortal';
+import { ConnectSpreadsheetModal } from '../components/ConnectSpreadsheetModal';
 import {
   Printer,
   Copy,
@@ -15,19 +16,38 @@ import {
   Share2,
   ExternalLink,
   Smartphone,
+  FileSpreadsheet,
+  RefreshCw,
+  Settings,
+  Database,
+  CheckCircle2,
 } from 'lucide-react';
-import { matchesSearch, isScaleOff } from '../utils/helpers';
+import { matchesSearch, isScaleOff, formatDateBR } from '../utils/helpers';
 
 export const ShareView: React.FC = () => {
-  const { state, saveHistory, showNotice } = useApp();
+  const {
+    state,
+    saveHistory,
+    showNotice,
+    syncToOnlineSpreadsheet,
+    exportLocalSpreadsheet,
+  } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [groupBy, setGroupBy] = useState<'task' | 'role'>('task');
   const [showPortal, setShowPortal] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const activeDate = state.selectedDate;
   const dayIntervals = state.intervals[activeDate] || {};
+
+  const handleSyncSpreadsheet = async () => {
+    setIsSyncing(true);
+    await syncToOnlineSpreadsheet();
+    setTimeout(() => setIsSyncing(false), 600);
+  };
 
   // Copy Interactive Share Link
   const handleCopyInteractiveLink = () => {
@@ -130,12 +150,26 @@ export const ShareView: React.FC = () => {
         </div>
       )}
 
+      {/* Connect Spreadsheet Modal */}
+      <ConnectSpreadsheetModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+      />
+
       {/* Top Controls Bar */}
       <div className="no-print flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[var(--paper)] p-4 rounded-xl border border-[var(--line)]">
         <div>
-          <h3 className="text-lg font-bold text-[var(--ink)]">Escala Unificada de Trabalho e Intervalos</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold text-[var(--ink)]">Escala Unificada de Trabalho e Intervalos</h3>
+            {state.onlineSpreadsheet && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 rounded-md">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                Planilha Ativa
+              </span>
+            )}
+          </div>
           <p className="text-xs text-[var(--muted)]">
-            Visualização integrada desenvolvida para envio aos colaboradores e impressão.
+            Visualização integrada desenvolvida para envio aos colaboradores, sincronização em planilha e impressão.
           </p>
         </div>
 
@@ -144,23 +178,78 @@ export const ShareView: React.FC = () => {
             value={searchTerm}
             onChange={setSearchTerm}
             placeholder="Pesquisar seu nome na escala..."
-            className="w-full sm:w-60"
+            className="w-full sm:w-56"
           />
 
-          <button
-            onClick={handleCopyText}
-            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
-          >
-            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>Copiar WhatsApp</span>
-          </button>
+          {state.onlineSpreadsheet ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={handleSyncSpreadsheet}
+                disabled={isSyncing}
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-black rounded-lg flex items-center gap-1.5 shadow-xs transition-colors border border-emerald-500 disabled:opacity-75"
+                title={`Sincronizar escala com ${state.onlineSpreadsheet.name}`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>
+                  {isSyncing
+                    ? 'Sincronizando...'
+                    : `Atualizar Dados na Planilha Online (${state.onlineSpreadsheet.name})`}
+                </span>
+              </button>
+
+              <button
+                onClick={exportLocalSpreadsheet}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
+                title="Salvar cópia de backup local (.CSV)"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Salvar em Planilha Local (.CSV)</span>
+              </button>
+
+              <a
+                href={state.onlineSpreadsheet.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-2 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 text-[var(--ink)]"
+                title="Abrir planilha no Google Sheets"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-[var(--primary)]" />
+              </a>
+
+              <button
+                onClick={() => setShowConnectModal(true)}
+                className="p-2 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--muted)] hover:text-[var(--ink)]"
+                title="Configurar planilha conectada"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={() => setShowConnectModal(true)}
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Gerar / Conectar Planilha Online</span>
+              </button>
+
+              <button
+                onClick={exportLocalSpreadsheet}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Salvar em Planilha Local (.CSV)</span>
+              </button>
+            </div>
+          )}
 
           <button
             onClick={handlePrint}
             className="px-3 py-2 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 text-[var(--ink)]"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Imprimir / PDF</span>
+            <span className="hidden sm:inline">Imprimir / PDF</span>
           </button>
 
           <button
@@ -168,7 +257,7 @@ export const ShareView: React.FC = () => {
             className="px-3 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1.5 shadow-xs"
           >
             <History className="w-3.5 h-3.5" />
-            <span>Salvar Histórico</span>
+            <span className="hidden sm:inline">Salvar Histórico</span>
           </button>
         </div>
       </div>

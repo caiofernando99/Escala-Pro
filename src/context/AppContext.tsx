@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AppState, BreakSlot, Collaborator, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
-import { generateId, isScaleOff, getTodayISO } from '../utils/helpers';
+import { AppState, BreakSlot, Collaborator, DeletedCollaborator, OnlineSpreadsheetConfig, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
+import { generateId, isScaleOff, getTodayISO, formatDateBR, getCollaboratorStatus } from '../utils/helpers';
 import { initialAppState } from '../utils/initialData';
 
 const STORAGE_KEY = 'people-scheduler-v3';
@@ -15,6 +15,9 @@ interface AppContextType {
   addCollaborator: (col?: Partial<Collaborator>) => void;
   updateCollaborator: (id: string, updates: Partial<Collaborator>) => void;
   deleteCollaborator: (id: string) => void;
+  restoreCollaborator: (deletedId: string) => void;
+  permanentlyDeleteCollaborator: (deletedId: string) => void;
+  clearTrashBin: () => void;
   addScheduledAbsence: (collaboratorId: string, absence: Omit<ScheduledAbsence, 'id'>) => void;
   removeScheduledAbsence: (collaboratorId: string, absenceId: string) => void;
   addTask: (name: string, allowedRoles?: string[], allowedCategories?: string[]) => void;
@@ -44,8 +47,17 @@ interface AppContextType {
   importFullState: (newState: Partial<AppState>) => void;
   importRosterRows: (rows: any[]) => number;
   resetAllData: () => void;
+  clearSampleData: () => void;
   noticeMessage: string | null;
-  showNotice: (msg: string) => void;
+  noticeActionLabel?: string | null;
+  onNoticeAction?: (() => void) | null;
+  showNotice: (msg: string, actionLabel?: string, onAction?: () => void) => void;
+  addTeamLeader: (name: string) => void;
+  removeTeamLeader: (name: string) => void;
+  setOnlineSpreadsheetConfig: (config: OnlineSpreadsheetConfig | null) => void;
+  syncToOnlineSpreadsheet: () => Promise<boolean>;
+  exportLocalSpreadsheet: () => void;
+  generateTemplateSpreadsheet: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -68,13 +80,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialAppState;
   });
 
-  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [noticeState, setNoticeState] = useState<{
+    message: string | null;
+    actionLabel?: string | null;
+    onAction?: (() => void) | null;
+  }>({ message: null });
 
-  const showNotice = (msg: string) => {
-    setNoticeMessage(msg);
+  const showNotice = (msg: string, actionLabel?: string, onAction?: () => void) => {
+    setNoticeState({ message: msg, actionLabel, onAction });
     setTimeout(() => {
-      setNoticeMessage((prev) => (prev === msg ? null : prev));
-    }, 3500);
+      setNoticeState((prev) => (prev.message === msg ? { message: null } : prev));
+    }, 7000);
   };
 
   // Save state to localStorage whenever state changes
@@ -143,8 +159,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: customProps?.name || 'Novo Colaborador',
       login: customProps?.login || '',
       registration: customProps?.registration || '',
-      shift: customProps?.shift || state.teamShift || 'T2',
+      shift: customProps?.shift || state.teamShift || 'Geral',
       scale: customProps?.scale || 'A',
+      teamLeader: customProps?.teamLeader || state.defaultTeamLeader || (state.teamLeaders?.[0] || 'Time 1'),
       role: customProps?.role || (state.roles[0] || 'Operador de Processo'),
       category: customProps?.category || (state.categories[0] || 'Inbound'),
       skills: customProps?.skills || {},
@@ -158,6 +175,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotice('Novo colaborador cadastrado.');
   };
 
+  const addTeamLeader = (name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    setState((prev) => {
+      const current = prev.teamLeaders || [];
+      if (current.includes(clean)) return prev;
+      return {
+        ...prev,
+        teamLeaders: [...current, clean],
+        defaultTeamLeader: prev.defaultTeamLeader || clean,
+      };
+    });
+    showNotice(`Time / TL "${clean}" adicionado com sucesso!`);
+  };
+
+  const removeTeamLeader = (name: string) => {
+    setState((prev) => {
+      const current = prev.teamLeaders || [];
+      const updated = current.filter((t) => t !== name);
+      return {
+        ...prev,
+        teamLeaders: updated,
+        defaultTeamLeader: prev.defaultTeamLeader === name ? updated[0] || '' : prev.defaultTeamLeader,
+      };
+    });
+    showNotice(`Time / TL "${name}" removido.`);
+  };
+
   const updateCollaborator = (id: string, updates: Partial<Collaborator>) => {
     setState((prev) => ({
       ...prev,
@@ -166,9 +211,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteCollaborator = (id: string) => {
+    const target = state.collaborators.find((c) => c.id === id);
+    if (!target) return;
+
+    const now = new Date();
+    const expires = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // 60 days retention
+    const deletedEntry: DeletedCollaborator = {
+      id: generateId(),
+      collaborator: target,
+      deletedAt: now.toISOString(),
+      expiresAt: expires.toISOString(),
+    };
+
     setState((prev) => ({
       ...prev,
       collaborators: prev.collaborators.filter((c) => c.id !== id),
+      deletedCollaborators: [...(prev.deletedCollaborators || []), deletedEntry],
       tasks: prev.tasks.map((t) => ({
         ...t,
         members: t.members.filter((m) => m !== id),
@@ -185,7 +243,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ])
       ),
     }));
-    showNotice('Colaborador removido.');
+
+    showNotice(
+      `Colaborador "${target.name}" movido para a Lixeira (mantido por 60 dias).`,
+      'Desfazer Exclusão',
+      () => restoreCollaborator(deletedEntry.id)
+    );
+  };
+
+  const restoreCollaborator = (deletedId: string) => {
+    const entry = state.deletedCollaborators?.find((d) => d.id === deletedId);
+    if (!entry) return;
+
+    setState((prev) => ({
+      ...prev,
+      collaborators: [...prev.collaborators, entry.collaborator],
+      deletedCollaborators: (prev.deletedCollaborators || []).filter((d) => d.id !== deletedId),
+    }));
+
+    showNotice(`Colaborador "${entry.collaborator.name}" restaurado com sucesso!`);
+  };
+
+  const permanentlyDeleteCollaborator = (deletedId: string) => {
+    const entry = state.deletedCollaborators?.find((d) => d.id === deletedId);
+    setState((prev) => ({
+      ...prev,
+      deletedCollaborators: (prev.deletedCollaborators || []).filter((d) => d.id !== deletedId),
+    }));
+
+    showNotice(`Colaborador "${entry?.collaborator.name || ''}" excluído permanentemente.`);
+  };
+
+  const clearTrashBin = () => {
+    setState((prev) => ({
+      ...prev,
+      deletedCollaborators: [],
+    }));
+    showNotice('Lixeira de colaboradores esvaziada.');
   };
 
   const addScheduledAbsence = (collaboratorId: string, absence: Omit<ScheduledAbsence, 'id'>) => {
@@ -451,7 +545,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       for (const person of activePeople) {
         const eligible = prev.breaks.filter(
-          (b) => (!b.shift || b.shift === 'Geral' || b.shift === person.shift) && result[b.id].length < b.capacity
+          (b) => !b.shift || b.shift === 'Geral' || b.shift === person.shift
         );
         const pool = eligible.length ? eligible : prev.breaks;
         pool.sort((a, b) => {
@@ -726,6 +820,148 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotice('Todos os dados foram completamente resetados.');
   };
 
+  const clearSampleData = () => {
+    setState((prev) => ({
+      ...prev,
+      collaborators: [],
+      deletedCollaborators: [],
+      tasks: prev.tasks.map((t) => ({ ...t, members: [] })),
+      attendance: {},
+      intervals: {},
+      history: [],
+      dailyReports: {},
+    }));
+    showNotice('Dados de exemplo removidos! Você já pode cadastrar sua equipe real.');
+  };
+
+  const exportLocalSpreadsheet = () => {
+    const activeDate = state.selectedDate;
+    const formattedDate = formatDateBR(activeDate);
+
+    // CSV Header with BOM for Excel UTF-8 Portuguese character support
+    let csv = '\uFEFF';
+    csv += 'Data (DD/MM/AAAA);Matrícula;Nome do Colaborador;Login;Setor;Gestor;Turno;Team Leader / Time;Escala;Cargo;Categoria;Status no Dia;Tarefa Operacional;Horário de Refeição;Habilidades\n';
+
+    state.collaborators.forEach((col) => {
+      const st = getCollaboratorStatus(col, activeDate, state);
+      const taskName = state.tasks.find((t) => t.members.includes(col.id))?.name || 'Não Alocado';
+      const dayInt = state.intervals[activeDate] || {};
+      const breakSlot = state.breaks.find((b) => (dayInt[b.id] || []).includes(col.id))?.time || 'Sem Intervalo';
+      const skillsStr = col.skills && Object.keys(col.skills).length > 0 ? Object.keys(col.skills).join(', ') : 'Nenhuma';
+      const tlName = col.teamLeader || state.defaultTeamLeader || 'Geral';
+
+      let statusLabel = 'Presente';
+      if (st.status === 'folga') statusLabel = 'Folga (6x2)';
+      else if (st.status === 'ferias') statusLabel = 'Férias';
+      else if (st.status === 'licenca') statusLabel = 'Licença Médica';
+      else if (st.status === 'treinamento') statusLabel = 'Treinamento';
+      else if (st.status === 'ausente') statusLabel = 'Ausente (Falta)';
+
+      csv += `"${formattedDate}";"${col.registration || ''}";"${col.name}";"${col.login || ''}";"${state.sector}";"${state.manager}";"${col.shift || state.teamShift}";"${tlName}";"${col.scale}";"${col.role}";"${col.category}";"${statusLabel}";"${taskName}";"${breakSlot}";"${skillsStr}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `escala-local-${state.teamName.replace(/\s+/g, '_')}-${formattedDate.replace(/\//g, '-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotice(`Planilha local baixada com sucesso (${formattedDate}).`);
+  };
+
+  const generateTemplateSpreadsheet = () => {
+    let csv = '\uFEFF';
+    csv += 'Matrícula;Nome;Login;Setor;Gestor;Turno;Team Leader / Time;Escala;Cargo;Categoria;Observações\n';
+    csv += 'REG-1001;João Silva;joaos;Recebimento;Carlos Santos;T2;Time do TL Bruno;A;Operador de Processo;Inbound;Colaborador T2\n';
+    csv += 'REG-1002;Maria Oliveira;mariao;Recebimento;Carlos Santos;T2;Time da TL Mariana;B;Analista de Qualidade;ICQA;Líder de Turno\n';
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `template-modelo-banco-de-dados-equipe.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotice(`Planilha modelo baixada para criação de banco de dados no Google Sheets.`);
+  };
+
+  const setOnlineSpreadsheetConfig = (config: OnlineSpreadsheetConfig | null) => {
+    setState((prev) => ({ ...prev, onlineSpreadsheet: config }));
+    if (config) {
+      showNotice(`Planilha "${config.name}" conectada com sucesso!`);
+    } else {
+      showNotice('Planilha online desconectada.');
+    }
+  };
+
+  const syncToOnlineSpreadsheet = async (): Promise<boolean> => {
+    const currentConfig = state.onlineSpreadsheet;
+    if (!currentConfig) {
+      showNotice('Nenhuma planilha online conectada.');
+      return false;
+    }
+
+    const now = new Date();
+    const timestampStr = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR')}`;
+
+    if (currentConfig.webhookUrl && currentConfig.webhookUrl.trim().length > 0) {
+      try {
+        const payload = {
+          date: formatDateBR(state.selectedDate),
+          teamName: state.teamName,
+          sector: state.sector,
+          manager: state.manager,
+          shift: state.teamShift,
+          collaboratorsCount: state.collaborators.length,
+          data: state.collaborators.map((c) => {
+            const st = getCollaboratorStatus(c, state.selectedDate, state);
+            const taskName = state.tasks.find((t) => t.members.includes(c.id))?.name || 'Não Alocado';
+            const dayInt = state.intervals[state.selectedDate] || {};
+            const breakSlot = state.breaks.find((b) => (dayInt[b.id] || []).includes(c.id))?.time || 'Sem Intervalo';
+            return {
+              date: formatDateBR(state.selectedDate),
+              registration: c.registration,
+              name: c.name,
+              login: c.login,
+              sector: state.sector,
+              manager: state.manager,
+              shift: c.shift || state.teamShift,
+              teamLeader: c.teamLeader || state.defaultTeamLeader || 'Sem Time',
+              scale: c.scale,
+              role: c.role,
+              category: c.category,
+              status: st.status,
+              task: taskName,
+              interval: breakSlot,
+            };
+          }),
+        };
+
+        await fetch(currentConfig.webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          mode: 'no-cors',
+        });
+      } catch (err) {
+        console.warn('Webhook dispatch error:', err);
+      }
+    }
+
+    setState((prev) => ({
+      ...prev,
+      onlineSpreadsheet: {
+        ...(prev.onlineSpreadsheet || { name: 'Planilha Oficial', url: '' }),
+        lastSyncedAt: timestampStr,
+        syncCount: (prev.onlineSpreadsheet?.syncCount || 0) + 1,
+      },
+    }));
+
+    showNotice(`Planilha "${currentConfig.name}" atualizada com os dados do dia ${formatDateBR(state.selectedDate)}!`);
+    return true;
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -738,6 +974,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addCollaborator,
         updateCollaborator,
         deleteCollaborator,
+        restoreCollaborator,
+        permanentlyDeleteCollaborator,
+        clearTrashBin,
         addScheduledAbsence,
         removeScheduledAbsence,
         addTask,
@@ -767,8 +1006,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         importFullState,
         importRosterRows,
         resetAllData,
-        noticeMessage,
+        clearSampleData,
+        noticeMessage: noticeState.message,
+        noticeActionLabel: noticeState.actionLabel,
+        onNoticeAction: noticeState.onAction,
         showNotice,
+        addTeamLeader,
+        removeTeamLeader,
+        setOnlineSpreadsheetConfig,
+        syncToOnlineSpreadsheet,
+        exportLocalSpreadsheet,
+        generateTemplateSpreadsheet,
       }}
     >
       {children}
