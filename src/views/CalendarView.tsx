@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ShiftGroup } from '../types';
-import { Download, Upload, RefreshCw, Calendar as CalendarIcon } from 'lucide-react';
+import { Download, Upload, RefreshCw, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
+import { SUGGESTED_CALENDAR_2026 } from '../utils/suggestedScale';
 
 const SHIFT_GROUPS: ShiftGroup[] = ['A', 'B', 'C', 'D'];
 const SHIFT_COLORS: Record<ShiftGroup, string> = {
@@ -32,6 +33,15 @@ export const CalendarView: React.FC = () => {
     if (!genStartDate) return;
     generate6x2Scale(genStartDate, genFirstGroup);
     setGenModalOpen(false);
+  };
+
+  const handleLoadSuggestedScale = () => {
+    importFullState({
+      calendar: { ...state.calendar, ...SUGGESTED_CALENDAR_2026 },
+      year: 2026,
+    });
+    setYear(2026);
+    showNotice('Escala Sugerida de 2026 carregada com sucesso no calendário!');
   };
 
   const handleExportCalendar = () => {
@@ -137,6 +147,14 @@ export const CalendarView: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleLoadSuggestedScale}
+            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-extrabold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            title="Preencher calendário com a sugestão oficial de escala de Julho a Dezembro de 2026"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Aplicar Escala 2026</span>
+          </button>
           <label className="px-3 py-1.5 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 text-[var(--ink)] cursor-pointer">
             <Upload className="w-3.5 h-3.5 text-[var(--muted)]" />
             <span>Importar JSON</span>

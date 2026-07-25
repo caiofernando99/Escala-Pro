@@ -1,5 +1,6 @@
 import { AppState } from '../types';
 import { generateId, getTodayISO } from './helpers';
+import { SUGGESTED_CALENDAR_2026 } from './suggestedScale';
 
 export const initialAppState: AppState = {
   brandId: 'escalapro',
@@ -18,11 +19,11 @@ export const initialAppState: AppState = {
   roles: ['REP', 'PS', 'TL'],
   categories: ['Inventario', 'Qualidade', 'Picking', 'Packing', 'Put-Away'],
   skills: ['Expert', 'HV', 'OP.Maquina'],
-  year: new Date().getFullYear(),
+  year: 2026,
   selectedDate: getTodayISO(),
   theme: 'slate',
   calendar: {
-    [getTodayISO()]: 'A',
+    ...SUGGESTED_CALENDAR_2026,
   },
   collaborators: [
     {
