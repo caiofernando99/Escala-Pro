@@ -203,10 +203,14 @@ export const SettingsView: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `people-scheduler-backup-${state.teamName || 'equipe'}.json`;
+    a.download = `escalapro-config-${state.teamName || 'equipe'}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showNotice('Configuração exportada com sucesso.');
+    if (state.onlineSpreadsheet?.webhookUrl) {
+      showNotice('Configurações exportadas! Inclui os parâmetros do sistema e a conexão completa com a planilha online (com Webhook e links).');
+    } else {
+      showNotice('Configurações exportadas com sucesso em formato .JSON!');
+    }
   };
 
   const handleImportConfig = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -626,8 +630,8 @@ export const SettingsView: React.FC = () => {
           <Database className="w-5 h-5" />
           <h3 className="text-base text-[var(--ink)]">Exportar e Importar Cópia Completa (.JSON)</h3>
         </div>
-        <p className="text-xs text-[var(--muted)]">
-          Faça download de um arquivo JSON contendo toda a estrutura cadastrada para transferir de computador ou guardar como cópia externa.
+        <p className="text-xs text-[var(--muted)] leading-relaxed">
+          Faça download do arquivo JSON contendo toda a estrutura cadastrada, colaboradores, cargos, tarefas e a <strong>conexão completa da planilha online (com Webhook e links do Google Sheets)</strong>. Ao importar este JSON em qualquer outro computador, a sincronização estará pronta para uso imediato.
         </p>
 
         <div className="flex flex-wrap items-center gap-3 pt-2">

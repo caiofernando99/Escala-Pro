@@ -176,6 +176,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
       sheetConfig.appendRow(["Gestor Responsável", contents.settings.manager || ""]);
       sheetConfig.appendRow(["Turno Geral", contents.settings.teamShift || ""]);
       sheetConfig.appendRow(["Líder de Equipe Padrão", contents.settings.defaultTeamLeader || ""]);
+      sheetConfig.appendRow(["Planilha Conectada", contents.settings.onlineSpreadsheetName || "Não informada"]);
+      sheetConfig.appendRow(["URL do Google Sheets", contents.settings.onlineSpreadsheetUrl || "Não informada"]);
+      sheetConfig.appendRow(["Endpoint Webhook (Apps Script)", contents.settings.onlineWebhookUrl || "Não informado"]);
+      sheetConfig.appendRow(["Auto-Sync em Tempo Real", contents.settings.autoSyncEnabled || "Sim"]);
       sheetConfig.appendRow(["Total de Colaboradores", contents.settings.totalCollaborators || 0]);
       sheetConfig.appendRow(["Última Sincronização", timestamp]);
       

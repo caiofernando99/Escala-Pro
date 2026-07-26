@@ -838,12 +838,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const importFullState = (newState: Partial<AppState>) => {
+    const isExampleSpreadsheet =
+      newState.onlineSpreadsheet?.url?.includes('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms');
+
+    const importedSpreadsheet = isExampleSpreadsheet ? null : newState.onlineSpreadsheet || null;
+
     setState((prev) => ({
       ...initialAppState,
       ...newState,
+      onlineSpreadsheet: importedSpreadsheet,
       theme: newState.theme || prev.theme || 'slate',
     }));
-    showNotice('Configurações e dados importados com sucesso!');
+
+    if (importedSpreadsheet?.webhookUrl) {
+      showNotice(
+        `Configurações e dados importados! Conexão com "${importedSpreadsheet.name}" restaurada e pronta para sincronizar.`,
+        'Testar Agora',
+        () => {
+          syncToOnlineSpreadsheet();
+        }
+      );
+    } else {
+      showNotice('Configurações e dados importados com sucesso!');
+    }
   };
 
   const importRosterRows = (rows: any[]) => {
@@ -1155,6 +1172,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           manager: state.manager,
           teamShift: state.teamShift,
           defaultTeamLeader: state.defaultTeamLeader || 'Sem Líder Padrão',
+          onlineSpreadsheetName: currentConfig.name,
+          onlineSpreadsheetUrl: currentConfig.url,
+          onlineWebhookUrl: currentConfig.webhookUrl || 'Não configurado',
+          autoSyncEnabled: currentConfig.autoSyncEnabled !== false ? 'Sim' : 'Não',
           roles: state.roles,
           categories: state.categories,
           scales: state.scales,
@@ -1203,7 +1224,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return true;
     } catch (err) {
-      console.error('Sincronização com Google Sheets falhou:', err);
+      console.warn('Sincronização com Google Sheets não pôde ser concluída:', err);
       
       setState((prev) => ({
         ...prev,
