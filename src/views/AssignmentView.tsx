@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { SearchInput } from '../components/SearchInput';
 import {
   Shuffle,
-  Trash2,
   Briefcase,
   Tag,
-  CheckCircle2,
   X,
+  Plus,
+  CheckCircle2,
+  Users,
+  ChevronDown,
   Sparkles,
-  Info,
 } from 'lucide-react';
 import { matchesSearch, isScaleOff } from '../utils/helpers';
+import { Task, Collaborator } from '../types';
 
 export const AssignmentView: React.FC = () => {
   const { state, assignTask, unassignTask, clearAssignments, autoAssign } = useApp();
@@ -21,7 +23,12 @@ export const AssignmentView: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState('');
 
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
-  const [contextMenuColId, setContextMenuColId] = useState<string | null>(null);
+  const [popoverState, setPopoverState] = useState<{
+    colId: string;
+    top: number;
+    left: number;
+  } | null>(null);
+  const [showOtherTasks, setShowOtherTasks] = useState(false);
 
   const activeDate = state.selectedDate;
 
@@ -61,157 +68,214 @@ export const AssignmentView: React.FC = () => {
     setDraggedColId(null);
   };
 
+  const handleCollaboratorClick = (e: React.MouseEvent<HTMLDivElement>, colId: string) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isMobile = window.innerWidth < 640;
+
+    let left = rect.right + 6;
+    let top = rect.top;
+
+    if (isMobile) {
+      left = Math.max(10, (window.innerWidth - 300) / 2);
+      top = Math.max(10, rect.bottom + 6);
+      if (top + 380 > window.innerHeight) {
+        top = Math.max(10, window.innerHeight - 390);
+      }
+    } else {
+      if (left + 300 > window.innerWidth) {
+        left = Math.max(10, rect.left - 306);
+      }
+      if (top + 400 > window.innerHeight) {
+        top = Math.max(10, window.innerHeight - 410);
+      }
+    }
+
+    setPopoverState({ colId, top, left });
+    setShowOtherTasks(false);
+  };
+
+  // Close popover on escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPopoverState(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const selectedCol = popoverState
+    ? state.collaborators.find((c) => c.id === popoverState.colId)
+    : null;
+
+  // Filter tasks for contextual popover
+  const getCategorizedTasks = (col: Collaborator) => {
+    const recommended: Task[] = [];
+    const others: Task[] = [];
+
+    state.tasks.forEach((task) => {
+      const hasRoleRestriction = (task.allowedRoles || []).length > 0;
+      const hasCatRestriction = (task.allowedCategories || []).length > 0;
+
+      const roleMatch = !hasRoleRestriction || (task.allowedRoles || []).includes(col.role);
+      const catMatch = !hasCatRestriction || (task.allowedCategories || []).includes(col.category);
+
+      if (roleMatch && catMatch) {
+        recommended.push(task);
+      } else {
+        others.push(task);
+      }
+    });
+
+    return { recommended, others };
+  };
+
+  const popoverTasks = selectedCol ? getCategorizedTasks(selectedCol) : { recommended: [], others: [] };
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[var(--paper)] p-4 rounded-xl border border-[var(--line)]">
-        <div>
-          <h3 className="text-lg font-bold text-[var(--ink)]">Dimensionamento de Tarefas</h3>
-          <p className="text-xs text-[var(--muted)]">
-            Arraste os colaboradores para as tarefas ou clique no nome para selecionar. As tarefas podem ser filtradas por cargo e categoria.
-          </p>
+    <div className="space-y-2.5 animate-in fade-in duration-200">
+      {/* Top Header & Filter Bar */}
+      <div className="bg-[var(--paper)] p-3 rounded-xl border border-[var(--line)] space-y-2.5 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--line)] pb-2">
+          <div>
+            <h3 className="text-sm font-black text-[var(--ink)] leading-tight">Dimensionamento de Tarefas</h3>
+            <p className="text-[11px] text-[var(--muted)]">
+              Clique no colaborador para abrir o menu contextual de tarefas ou arraste direto para o card.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={clearAssignments}
+              className="px-2.5 py-1 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-[var(--bg)] text-[var(--ink)] cursor-pointer"
+            >
+              Limpar
+            </button>
+            <button
+              onClick={autoAssign}
+              className="px-3 py-1 bg-[var(--primary)] text-white text-xs font-black rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1 shadow-2xs cursor-pointer"
+            >
+              <Shuffle className="w-3.5 h-3.5" />
+              <span>Auto Dimensionar</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={clearAssignments}
-            className="px-3 py-1.5 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-[var(--bg)] text-[var(--ink)]"
-          >
-            Limpar Dimensionamento
-          </button>
-          <button
-            onClick={autoAssign}
-            className="px-4 py-1.5 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1.5 shadow-xs"
-          >
-            <Shuffle className="w-3.5 h-3.5" />
-            <span>Auto Dimensionar</span>
-          </button>
+        {/* Filter and Search Bar */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Pesquisar colaborador..."
+            className="w-full sm:w-52"
+          />
+
+          <div className="flex items-center gap-1">
+            <Briefcase className="w-3.5 h-3.5 text-[var(--muted)]" />
+            <select
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
+              className="bg-[var(--bg)] border border-[var(--line)] rounded-lg px-2 py-0.5 text-xs font-bold text-[var(--ink)] cursor-pointer"
+            >
+              <option value="">Todos os Cargos</option>
+              {state.roles.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Tag className="w-3.5 h-3.5 text-[var(--muted)]" />
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="bg-[var(--bg)] border border-[var(--line)] rounded-lg px-2 py-0.5 text-xs font-bold text-[var(--ink)] cursor-pointer"
+            >
+              <option value="">Todas as Categorias</option>
+              {state.categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(searchTerm || filterRole || filterCategory) && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setFilterRole('');
+                setFilterCategory('');
+              }}
+              className="text-xs font-black text-red-600 hover:underline flex items-center gap-0.5 ml-auto cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Limpar Filtros</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-[var(--paper)] border border-[var(--line)] p-4 rounded-xl flex flex-wrap items-center gap-3">
-        <SearchInput
-          value={searchTerm}
-          onChange={setSearchTerm}
-          placeholder="Pesquisar por nome..."
-          className="w-full sm:w-64"
-        />
-
-        <div className="flex items-center gap-2">
-          <Briefcase className="w-4 h-4 text-[var(--muted)]" />
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="bg-[var(--bg)] border border-[var(--line)] rounded-lg px-2.5 py-2 text-xs font-semibold text-[var(--ink)]"
-          >
-            <option value="">Todos os Cargos</option>
-            {state.roles.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Tag className="w-4 h-4 text-[var(--muted)]" />
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="bg-[var(--bg)] border border-[var(--line)] rounded-lg px-2.5 py-2 text-xs font-semibold text-[var(--ink)]"
-          >
-            <option value="">Todas as Categorias</option>
-            {state.categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {(searchTerm || filterRole || filterCategory) && (
-          <button
-            onClick={() => {
-              setSearchTerm('');
-              setFilterRole('');
-              setFilterCategory('');
-            }}
-            className="text-xs font-bold text-red-600 hover:underline flex items-center gap-1 ml-auto"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span>Limpar Filtros</span>
-          </button>
-        )}
-      </div>
-
-      {/* Main Dimensioning Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Available Unassigned People Pool (4 cols) */}
-        <div className="lg:col-span-4 bg-[var(--paper)] border border-[var(--line)] p-4 rounded-xl space-y-3 sticky top-4">
-          <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
-            <h4 className="text-sm font-bold text-[var(--ink)]">
-              Disponíveis Não Atribuídos ({unassignedPeople.length})
+      {/* Main Dimensioning Area: Adaptive Unassigned Pool + Dense High-Efficiency Task Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+        {/* Available Unassigned People Pool (3 cols on large screens, compact card list) */}
+        <div className="lg:col-span-3 bg-[var(--paper)] border border-[var(--line)] p-3 rounded-xl space-y-2 sticky top-3 shadow-2xs">
+          <div className="flex items-center justify-between border-b border-[var(--line)] pb-1.5">
+            <h4 className="text-xs font-black text-[var(--ink)] flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-[var(--primary)]" />
+              <span>Sem Tarefa ({unassignedPeople.length})</span>
             </h4>
-            <span className="text-[10px] bg-[var(--bg)] px-2 py-0.5 rounded font-mono font-bold text-[var(--muted)]">
+            <span className="text-[10px] bg-[var(--bg)] px-1.5 py-0.2 rounded font-mono font-bold text-[var(--muted)]">
               {presentPeople.length} Presentes
             </span>
           </div>
 
-          <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-[calc(100vh-210px)] overflow-y-auto pr-0.5">
             {unassignedPeople.length > 0 ? (
               unassignedPeople.map((col) => (
                 <div
                   key={col.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, col.id)}
-                  onClick={() => setContextMenuColId(col.id)}
-                  className="p-3 bg-[var(--bg)] hover:bg-[var(--primary-soft)] border border-[var(--line)] hover:border-[var(--primary-border)] rounded-xl cursor-grab active:cursor-grabbing transition-all space-y-1.5 shadow-xs"
+                  onClick={(e) => handleCollaboratorClick(e, col.id)}
+                  className={`p-2 bg-[var(--bg)] hover:bg-[var(--primary-soft)] border rounded-lg cursor-pointer transition-all space-y-1 shadow-2xs ${
+                    popoverState?.colId === col.id
+                      ? 'border-[var(--primary)] ring-2 ring-[var(--primary-border)]'
+                      : 'border-[var(--line)] hover:border-[var(--primary-border)]'
+                  }`}
+                  title="Clique para atribuir tarefa rápido"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[var(--ink)]">{col.name}</span>
-                    <span className="text-[10px] font-bold bg-[var(--paper)] px-2 py-0.5 rounded border border-[var(--line)] text-[var(--muted)]">
+                    <span className="text-xs font-black text-[var(--ink)] truncate pr-1">{col.name}</span>
+                    <span className="text-[9px] font-bold bg-[var(--paper)] px-1 py-0.2 rounded border border-[var(--line)] text-[var(--muted)] shrink-0">
                       {col.shift}
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                    <span className="px-1.5 py-0.5 bg-[var(--paper)] border border-[var(--line)] rounded font-semibold text-[var(--ink)]">
-                      {col.role || 'Sem cargo'}
+                  <div className="flex flex-wrap items-center gap-1 text-[9.5px]">
+                    <span className="px-1 py-0.2 bg-[var(--paper)] border border-[var(--line)] rounded font-extrabold text-[var(--ink)] truncate">
+                      {col.role || 'Geral'}
                     </span>
-                    <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded font-semibold">
-                      {col.category || 'Sem cat'}
+                    <span className="px-1 py-0.2 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border border-amber-200 dark:border-amber-800/50 rounded font-extrabold truncate">
+                      {col.category || 'Operacional'}
                     </span>
                   </div>
-
-                  {/* Skills badges if any */}
-                  {col.skills && Object.keys(col.skills).some((s) => (col.skills?.[s] || 0) > 0) && (
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      {Object.entries(col.skills).map(([s, lvl]) =>
-                        Number(lvl) > 0 ? (
-                          <span
-                            key={s}
-                            className="text-[9px] font-bold bg-purple-50 text-purple-800 dark:bg-purple-950 dark:text-purple-300 px-1.5 py-0.2 rounded"
-                          >
-                            {s} • N{lvl}
-                          </span>
-                        ) : null
-                      )}
-                    </div>
-                  )}
                 </div>
               ))
             ) : (
-              <p className="p-8 text-center text-xs text-[var(--muted)] italic">
-                Todos os colaboradores correspondentes aos filtros já estão dimensionados.
+              <p className="p-6 text-center text-xs text-[var(--muted)] italic">
+                Todos os colaboradores já foram dimensionados!
               </p>
             )}
           </div>
         </div>
 
-        {/* Tasks List (8 cols) */}
-        <div className="lg:col-span-8 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Tasks List (9 cols - High density grid: 1 to 4 cols depending on width) */}
+        <div className="lg:col-span-9 space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5">
             {state.tasks.map((task) => {
               const members = task.members
                 .map((mId) => state.collaborators.find((c) => c.id === mId))
@@ -225,61 +289,66 @@ export const AssignmentView: React.FC = () => {
                   key={task.id}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => handleDrop(e, task.id)}
-                  className="bg-[var(--paper)] border-2 border-[var(--line)] hover:border-[var(--primary-border)] p-4 rounded-xl space-y-3 transition-all min-h-[160px] flex flex-col justify-between"
+                  className="bg-[var(--paper)] border border-[var(--line)] hover:border-[var(--primary-border)] p-2.5 rounded-xl space-y-2 transition-all min-h-[140px] flex flex-col justify-between shadow-2xs"
                 >
                   <div>
                     {/* Task Header */}
-                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-2 mb-2">
-                      <div>
-                        <h4 className="text-sm font-black text-[var(--ink)]">{task.name}</h4>
-                        {/* Linked roles / categories indicators */}
+                    <div className="border-b border-[var(--line)] pb-1.5 mb-1.5">
+                      <div className="flex items-center justify-between gap-1">
+                        <h4 className="text-xs font-black text-[var(--ink)] truncate" title={task.name}>
+                          {task.name}
+                        </h4>
+                        <span className="text-[10px] font-black bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary-border)] px-1.5 py-0.2 rounded-full shrink-0">
+                          {members.length} {members.length === 1 ? 'pessoa' : 'pessoas'}
+                        </span>
+                      </div>
+
+                      {/* Linked roles / categories indicators */}
+                      {(roleMatches || catMatches) && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {roleMatches && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 bg-[var(--primary-soft)] text-[var(--primary)] rounded">
-                              Cargos: {task.allowedRoles?.join(', ')}
+                            <span className="text-[8.5px] font-extrabold px-1 py-0.1 bg-[var(--bg)] text-[var(--primary)] border border-[var(--primary-border)] rounded truncate max-w-[130px]">
+                              {task.allowedRoles?.join(', ')}
                             </span>
                           )}
                           {catMatches && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded">
-                              Cats: {task.allowedCategories?.join(', ')}
+                            <span className="text-[8.5px] font-extrabold px-1 py-0.1 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border border-amber-200 rounded truncate max-w-[130px]">
+                              {task.allowedCategories?.join(', ')}
                             </span>
                           )}
                         </div>
-                      </div>
-                      <span className="text-xs font-black bg-[var(--primary)] text-white px-2.5 py-1 rounded-full">
-                        {members.length}
-                      </span>
+                      )}
                     </div>
 
                     {/* Assigned Members */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-1 max-h-56 overflow-y-auto pr-0.5">
                       {members.length > 0 ? (
                         members.map((col) => {
                           if (!col) return null;
                           return (
                             <div
                               key={col.id}
-                              className="p-2 bg-[var(--bg)] border border-[var(--line)] rounded-lg flex items-center justify-between text-xs hover:border-[var(--primary)] transition-colors"
+                              className="p-1 bg-[var(--bg)] border border-[var(--line)] rounded-md flex items-center justify-between text-[10px] hover:border-[var(--primary)] transition-colors shadow-2xs"
                             >
-                              <div>
-                                <span className="font-bold text-[var(--ink)]">{col.name}</span>
-                                <div className="text-[10px] text-[var(--muted)]">
-                                  {col.role} • {col.category}
-                                </div>
+                              <div className="min-w-0 pr-1">
+                                <span className="font-extrabold text-[var(--ink)] truncate block text-[10px]">{col.name}</span>
+                                <span className="text-[8.5px] text-[var(--muted)] truncate block">
+                                  {col.role || 'Geral'} • {col.category || 'Geral'}
+                                </span>
                               </div>
                               <button
                                 onClick={() => unassignTask(col.id)}
-                                className="p-1 text-slate-400 hover:text-red-500 rounded"
+                                className="p-0.5 text-slate-400 hover:text-red-500 rounded shrink-0 cursor-pointer"
                                 title="Remover da tarefa"
                               >
-                                <X className="w-3.5 h-3.5" />
+                                <X className="w-3 h-3" />
                               </button>
                             </div>
                           );
                         })
                       ) : (
-                        <div className="p-6 text-center text-xs text-[var(--muted)] border border-dashed border-[var(--line)] rounded-lg">
-                          Arraste pessoas até aqui
+                        <div className="p-4 text-center text-[10px] font-bold text-[var(--muted)] border border-dashed border-[var(--line)] rounded-md bg-[var(--bg)]/50">
+                          Solte pessoas aqui
                         </div>
                       )}
                     </div>
@@ -291,40 +360,128 @@ export const AssignmentView: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Context Assign Modal */}
-      {contextMenuColId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-[var(--paper)] border border-[var(--line)] rounded-xl p-5 max-w-xs w-full shadow-2xl space-y-3 relative">
-            <button
-              onClick={() => setContextMenuColId(null)}
-              className="absolute top-3 right-3 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
+      {/* Near-Mouse Contextual Assignment Popover */}
+      {popoverState && selectedCol && (
+        <>
+          {/* Backdrop overlay for closing on click outside */}
+          <div
+            className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[1px]"
+            onClick={() => setPopoverState(null)}
+          />
 
-            <h4 className="text-sm font-bold text-[var(--ink)]">
-              Atribuir {state.collaborators.find((c) => c.id === contextMenuColId)?.name}
-            </h4>
+          <div
+            style={{
+              position: 'fixed',
+              top: `${popoverState.top}px`,
+              left: `${popoverState.left}px`,
+            }}
+            className="z-50 w-72 bg-[var(--paper)] border-2 border-[var(--primary-border)] rounded-xl p-3 shadow-2xl space-y-2 animate-in fade-in zoom-in-95 duration-150"
+          >
+            {/* Popover Header */}
+            <div className="flex items-start justify-between border-b border-[var(--line)] pb-2">
+              <div>
+                <span className="text-[9.5px] font-black text-[var(--primary)] uppercase tracking-wider block">
+                  Atribuir Tarefa
+                </span>
+                <h4 className="text-xs font-black text-[var(--ink)] leading-tight">{selectedCol.name}</h4>
+                <div className="flex items-center gap-1 text-[9px] font-bold text-[var(--muted)] mt-0.5">
+                  <span className="bg-[var(--bg)] border border-[var(--line)] px-1 rounded text-[var(--ink)]">
+                    {selectedCol.role || 'Sem cargo'}
+                  </span>
+                  <span>•</span>
+                  <span className="bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200 px-1 rounded">
+                    {selectedCol.category || 'Sem cat'}
+                  </span>
+                </div>
+              </div>
 
-            <p className="text-xs text-[var(--muted)]">Escolha a tarefa de destino:</p>
+              <button
+                onClick={() => setPopoverState(null)}
+                className="p-1 text-[var(--muted)] hover:text-[var(--ink)] rounded-md hover:bg-[var(--bg)] cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
-            <div className="space-y-1.5 max-h-60 overflow-y-auto">
-              {state.tasks.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    assignTask(contextMenuColId, t.id);
-                    setContextMenuColId(null);
-                  }}
-                  className="w-full text-left p-2 rounded-lg text-xs font-semibold bg-[var(--bg)] hover:bg-[var(--primary)] hover:text-white transition-colors"
-                >
-                  {t.name}
-                </button>
-              ))}
+            {/* Contextual Task Options List (fits up to 10 items before scroll) */}
+            <div className="space-y-1 max-h-[320px] overflow-y-auto pr-0.5">
+              {/* Recommended / Matching Tasks Section */}
+              {popoverTasks.recommended.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-[9px] font-extrabold text-[var(--primary)] uppercase tracking-wider flex items-center gap-1 pt-0.5">
+                    <Sparkles className="w-3 h-3" />
+                    <span>Recomendadas para {selectedCol.role || 'este perfil'}</span>
+                  </div>
+                  {popoverTasks.recommended.map((t) => {
+                    const currentCount = t.members.length;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          assignTask(selectedCol.id, t.id);
+                          setPopoverState(null);
+                        }}
+                        className="w-full text-left p-1.5 rounded-lg text-xs font-bold bg-[var(--bg)] hover:bg-[var(--primary)] hover:text-white transition-colors flex items-center justify-between group cursor-pointer border border-[var(--line)] hover:border-[var(--primary-border)] shadow-2xs"
+                      >
+                        <span className="truncate pr-1">{t.name}</span>
+                        <span className="text-[9px] font-black bg-[var(--paper)] text-[var(--ink)] group-hover:bg-white group-hover:text-[var(--primary)] px-1.5 py-0.2 rounded-full border border-[var(--line)] shrink-0">
+                          {currentCount}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Toggle for Other non-matching Tasks */}
+              {popoverTasks.others.length > 0 && (
+                <div className="pt-1.5 border-t border-[var(--line)]">
+                  {!showOtherTasks ? (
+                    <button
+                      onClick={() => setShowOtherTasks(true)}
+                      className="w-full py-1.5 px-2 bg-[var(--bg)] hover:bg-[var(--line)] text-[var(--ink)] rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer border border-[var(--line)]"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-[var(--primary)]" />
+                      <span>Outras tarefas ({popoverTasks.others.length})</span>
+                    </button>
+                  ) : (
+                    <div className="space-y-1 pt-1">
+                      <div className="text-[9px] font-bold text-[var(--muted)] uppercase tracking-wider">
+                        Outras Tarefas (Outro Cargo/Categoria)
+                      </div>
+                      {popoverTasks.others.map((t) => {
+                        const currentCount = t.members.length;
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => {
+                              assignTask(selectedCol.id, t.id);
+                              setPopoverState(null);
+                            }}
+                            className="w-full text-left p-1.5 rounded-lg text-xs font-semibold bg-[var(--bg)]/70 hover:bg-[var(--primary)] hover:text-white transition-colors flex items-center justify-between group cursor-pointer border border-[var(--line)]"
+                          >
+                            <span className="truncate pr-1">{t.name}</span>
+                            <span className="text-[9px] font-bold bg-[var(--paper)] text-[var(--muted)] group-hover:bg-white group-hover:text-[var(--primary)] px-1.5 py-0.2 rounded-full shrink-0">
+                              {currentCount}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {popoverTasks.recommended.length === 0 && popoverTasks.others.length === 0 && (
+                <p className="p-3 text-center text-xs text-[var(--muted)] italic">
+                  Nenhuma tarefa cadastrada.
+                </p>
+              )}
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 };
+

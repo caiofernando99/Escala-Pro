@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, AutoBackupInfo, BreakSlot, Collaborator, DeletedCollaborator, OnlineSpreadsheetConfig, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
 import { generateId, isScaleOff, getTodayISO, formatDateBR, getCollaboratorStatus } from '../utils/helpers';
 import { initialAppState } from '../utils/initialData';
@@ -60,9 +60,12 @@ interface AppContextType {
   addTeamLeader: (name: string) => void;
   removeTeamLeader: (name: string) => void;
   setOnlineSpreadsheetConfig: (config: OnlineSpreadsheetConfig | null) => void;
-  syncToOnlineSpreadsheet: () => Promise<boolean>;
+  syncToOnlineSpreadsheet: (isAutoSync?: boolean) => Promise<boolean>;
   exportLocalSpreadsheet: () => void;
+  exportTeamRosterSpreadsheet: () => void;
   generateTemplateSpreadsheet: () => void;
+  toggleSidebarCollapsed: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -73,9 +76,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        const isExampleSpreadsheet =
+          parsed.onlineSpreadsheet?.url?.includes('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms');
         return {
           ...initialAppState,
           ...parsed,
+          onlineSpreadsheet: isExampleSpreadsheet ? null : parsed.onlineSpreadsheet || null,
           theme: parsed.theme || 'slate',
         };
       }
@@ -865,8 +871,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         newCols.push({
           id: generateId(),
           name,
-          login: getVal('login', 'login amazon', 'user'),
-          registration: getVal('matrícula', 'matricula', 'id'),
+          login: getVal('ldap', 'login', 'login amazon', 'user'),
+          registration: getVal('re', 're (matrícula)', 're (matricula)', 'matrícula', 'matricula', 'id', 'reg'),
           shift: prev.teamShift || getVal('turno', 'shift') || 'T2',
           scale: (getVal('escala', 'scale') || 'A').toUpperCase() as ShiftGroup,
           role,
@@ -921,13 +927,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotice('Dados de exemplo removidos! Você já pode cadastrar sua equipe real.');
   };
 
+  const exportTeamRosterSpreadsheet = () => {
+    if (!state.collaborators || state.collaborators.length === 0) {
+      generateTemplateSpreadsheet();
+      return;
+    }
+
+    let csv = '\uFEFF';
+    csv += 'RE (Matrícula);Nome;LDAP;Setor;Gestor;Turno;Team Leader / Time;Escala;Cargo;Categoria;Observações\n';
+
+    state.collaborators.forEach((col) => {
+      const tlName = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
+      csv += `"${col.registration || ''}";"${col.name}";"${col.login || ''}";"${state.sector || ''}";"${state.manager || ''}";"${col.shift || state.teamShift || 'Geral'}";"${tlName}";"${col.scale}";"${col.role}";"${col.category}";"${col.notes || ''}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `planilha-equipe-${(state.teamName || 'equipe').replace(/\s+/g, '_').toLowerCase()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotice(`Planilha com dados preenchidos de ${state.collaborators.length} colaborador(es) exportada em .CSV!`);
+  };
+
   const exportLocalSpreadsheet = () => {
     const activeDate = state.selectedDate;
     const formattedDate = formatDateBR(activeDate);
 
     // CSV Header with BOM for Excel UTF-8 Portuguese character support
     let csv = '\uFEFF';
-    csv += 'Data (DD/MM/AAAA);Matrícula;Nome do Colaborador;Login;Setor;Gestor;Turno;Team Leader / Time;Escala;Cargo;Categoria;Status no Dia;Tarefa Operacional;Horário de Refeição;Habilidades\n';
+    csv += 'Data (DD/MM/AAAA);RE (Matrícula);Nome do Colaborador;LDAP;Setor;Gestor;Turno;Team Leader / Time;Escala;Cargo;Categoria;Status no Dia;Tarefa Operacional;Horário de Refeição;Habilidades\n';
 
     state.collaborators.forEach((col) => {
       const st = getCollaboratorStatus(col, activeDate, state);
@@ -959,9 +989,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const generateTemplateSpreadsheet = () => {
     let csv = '\uFEFF';
-    csv += 'Matrícula;Nome;Login;Setor;Gestor;Turno;Team Leader / Time;Escala;Cargo;Categoria;Observações\n';
-    csv += 'REG-1001;João Silva;joaos;Recebimento;Carlos Santos;T2;Time do TL Bruno;A;Operador de Processo;Inbound;Colaborador T2\n';
-    csv += 'REG-1002;Maria Oliveira;mariao;Recebimento;Carlos Santos;T2;Time da TL Mariana;B;Analista de Qualidade;ICQA;Líder de Turno\n';
+    csv += 'RE (Matrícula);Nome;LDAP;Setor;Gestor;Turno;Team Leader / Time;Escala;Cargo;Categoria;Observações\n';
+    csv += 'RE-1001;João Silva;joaos;Recebimento;Carlos Santos;T2;Time do TL Bruno;A;Operador de Processo;Inbound;Colaborador T2\n';
+    csv += 'RE-1002;Maria Oliveira;mariao;Recebimento;Carlos Santos;T2;Time da TL Mariana;B;Analista de Qualidade;ICQA;Líder de Turno\n';
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -982,72 +1012,251 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const syncToOnlineSpreadsheet = async (): Promise<boolean> => {
+  const setSidebarCollapsed = (collapsed: boolean) => {
+    setState((prev) => ({ ...prev, isSidebarCollapsed: collapsed }));
+  };
+
+  const toggleSidebarCollapsed = () => {
+    setState((prev) => ({ ...prev, isSidebarCollapsed: !prev.isSidebarCollapsed }));
+  };
+
+  const syncToOnlineSpreadsheet = async (isAutoSync = false): Promise<boolean> => {
     const currentConfig = state.onlineSpreadsheet;
     if (!currentConfig) {
-      showNotice('Nenhuma planilha online conectada.');
+      if (!isAutoSync) showNotice('Nenhuma planilha online conectada.');
+      return false;
+    }
+
+    const webhookUrl = currentConfig.webhookUrl?.trim();
+    if (!webhookUrl) {
+      if (!isAutoSync) {
+        showNotice('URL de Webhook (Google Apps Script) não informada. Configure nas opções para sincronizar na nuvem.');
+      }
+      return false;
+    }
+
+    // Check if user pasted standard Google Sheets URL into Webhook URL field
+    if (webhookUrl.includes('docs.google.com/spreadsheets')) {
+      const errMsg = 'A URL do Webhook deve ser o link do Web App do Google Apps Script (https://script.google.com/macros/s/.../exec), e não o link direto da planilha.';
+      setState((prev) => ({
+        ...prev,
+        onlineSpreadsheet: prev.onlineSpreadsheet
+          ? { ...prev.onlineSpreadsheet, syncStatus: 'error', lastError: errMsg, lastSyncedAt: undefined }
+          : null,
+      }));
+      if (!isAutoSync) showNotice(`Erro de Configuração: ${errMsg}`);
       return false;
     }
 
     const now = new Date();
     const timestampStr = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR')}`;
 
-    if (currentConfig.webhookUrl && currentConfig.webhookUrl.trim().length > 0) {
-      try {
-        const payload = {
+    try {
+      // Validate URL syntax
+      new URL(webhookUrl);
+
+      const dayReport = state.dailyReports[state.selectedDate] || {};
+
+      // Calculate absenteeism & report metrics
+      const totalCols = state.collaborators.length;
+      let presentCount = 0;
+      let absentCount = 0;
+      let vacationCount = 0;
+      let leaveTrainingCount = 0;
+      let offCount = 0;
+
+      const absenceDetailsList: any[] = [];
+
+      state.collaborators.forEach((c) => {
+        const statusInfo = getCollaboratorStatus(c, state.selectedDate, state);
+        const taskName = state.tasks.find((t) => t.members.includes(c.id))?.name || 'Não Alocado';
+        const reason = dayReport.absenceReasons?.[c.id] || '';
+        const occurrence = dayReport.occurrences?.[c.id] || '';
+
+        if (statusInfo.status === 'presente') {
+          presentCount++;
+        } else if (statusInfo.status === 'ausente') {
+          absentCount++;
+        } else if (statusInfo.status === 'ferias') {
+          vacationCount++;
+        } else if (statusInfo.status === 'licenca' || statusInfo.status === 'treinamento') {
+          leaveTrainingCount++;
+        } else if (statusInfo.status === 'folga') {
+          offCount++;
+        }
+
+        if (statusInfo.status !== 'presente' || reason || occurrence) {
+          absenceDetailsList.push({
+            date: formatDateBR(state.selectedDate),
+            registration: c.registration,
+            name: c.name,
+            login: c.login,
+            role: c.role,
+            category: c.category,
+            teamLeader: c.teamLeader || state.defaultTeamLeader || 'Sem Líder',
+            status: statusInfo.status,
+            task: taskName,
+            absenceReason: reason || (statusInfo.absenceDetail ? `${statusInfo.absenceDetail.type.toUpperCase()}: ${statusInfo.absenceDetail.notes || ''}` : 'Não informada'),
+            occurrence: occurrence || 'Nenhuma',
+          });
+        }
+      });
+
+      const absenteeismRate = totalCols > 0 ? ((absentCount / totalCols) * 100).toFixed(1) + '%' : '0%';
+
+      const payload = {
+        date: formatDateBR(state.selectedDate),
+        teamName: state.teamName,
+        sector: state.sector,
+        manager: state.manager,
+        shift: state.teamShift,
+        collaboratorsCount: state.collaborators.length,
+        data: state.collaborators.map((c) => {
+          const st = getCollaboratorStatus(c, state.selectedDate, state);
+          const taskName = state.tasks.find((t) => t.members.includes(c.id))?.name || 'Não Alocado';
+          const dayInt = state.intervals[state.selectedDate] || {};
+          const breakSlot = state.breaks.find((b) => (dayInt[b.id] || []).includes(c.id))?.time || 'Sem Intervalo';
+          return {
+            date: formatDateBR(state.selectedDate),
+            registration: c.registration,
+            name: c.name,
+            login: c.login,
+            sector: state.sector,
+            manager: state.manager,
+            shift: c.shift || state.teamShift,
+            teamLeader: c.teamLeader || state.defaultTeamLeader || 'Sem Time',
+            scale: c.scale,
+            role: c.role,
+            category: c.category,
+            status: st.status,
+            task: taskName,
+            interval: breakSlot,
+          };
+        }),
+        reports: {
           date: formatDateBR(state.selectedDate),
           teamName: state.teamName,
           sector: state.sector,
           manager: state.manager,
-          shift: state.teamShift,
-          collaboratorsCount: state.collaborators.length,
-          data: state.collaborators.map((c) => {
-            const st = getCollaboratorStatus(c, state.selectedDate, state);
-            const taskName = state.tasks.find((t) => t.members.includes(c.id))?.name || 'Não Alocado';
-            const dayInt = state.intervals[state.selectedDate] || {};
-            const breakSlot = state.breaks.find((b) => (dayInt[b.id] || []).includes(c.id))?.time || 'Sem Intervalo';
-            return {
-              date: formatDateBR(state.selectedDate),
-              registration: c.registration,
-              name: c.name,
-              login: c.login,
-              sector: state.sector,
-              manager: state.manager,
-              shift: c.shift || state.teamShift,
-              teamLeader: c.teamLeader || state.defaultTeamLeader || 'Sem Time',
-              scale: c.scale,
-              role: c.role,
-              category: c.category,
-              status: st.status,
-              task: taskName,
-              interval: breakSlot,
-            };
-          }),
-        };
+          totalCollaborators: totalCols,
+          presentCount,
+          absentCount,
+          vacationCount,
+          leaveTrainingCount,
+          offCount,
+          absenteeismRate,
+          generalNotes: dayReport.generalNotes || 'Nenhuma observação',
+          generatedAt: dayReport.generatedAt || timestampStr,
+          absencesAndOccurrences: absenceDetailsList,
+        },
+        settings: {
+          teamName: state.teamName,
+          sector: state.sector,
+          manager: state.manager,
+          teamShift: state.teamShift,
+          defaultTeamLeader: state.defaultTeamLeader || 'Sem Líder Padrão',
+          roles: state.roles,
+          categories: state.categories,
+          scales: state.scales,
+          teamLeaders: state.teamLeaders,
+          reasons: state.reasons,
+          tasks: state.tasks.map((t) => ({
+            id: t.id,
+            name: t.name,
+            membersCount: t.members.length,
+            allowedRoles: t.allowedRoles || [],
+            allowedCategories: t.allowedCategories || [],
+          })),
+          breaks: state.breaks.map((b) => ({
+            id: b.id,
+            time: b.time,
+            shift: b.shift || 'Geral',
+          })),
+          totalCollaborators: state.collaborators.length,
+          updatedAt: timestampStr,
+        },
+      };
 
-        await fetch(currentConfig.webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          mode: 'no-cors',
-        });
-      } catch (err) {
-        console.warn('Webhook dispatch error:', err);
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+        mode: 'no-cors',
+      });
+
+      // Update state to reflection success
+      setState((prev) => ({
+        ...prev,
+        onlineSpreadsheet: prev.onlineSpreadsheet
+          ? {
+              ...prev.onlineSpreadsheet,
+              lastSyncedAt: timestampStr,
+              syncCount: (prev.onlineSpreadsheet.syncCount || 0) + 1,
+              syncStatus: 'success',
+              lastError: undefined,
+            }
+          : null,
+      }));
+
+      if (!isAutoSync) {
+        showNotice(`Sincronização realizada com sucesso! Planilha "${currentConfig.name}" atualizada.`);
       }
+      return true;
+    } catch (err) {
+      console.error('Sincronização com Google Sheets falhou:', err);
+      
+      setState((prev) => ({
+        ...prev,
+        onlineSpreadsheet: prev.onlineSpreadsheet
+          ? {
+              ...prev.onlineSpreadsheet,
+              syncStatus: 'error',
+              lastSyncedAt: undefined, // Clear synced status so system reverts to local storage display
+              lastError: 'Falha ao conectar com o endpoint do Google Apps Script.',
+            }
+          : null,
+      }));
+
+      if (!isAutoSync) {
+        showNotice('Falha na comunicação com a planilha online. Verifique a URL do Web App e permissões de acesso (Qualquer Pessoa). Exibindo apenas Armazenamento Local.');
+      }
+      return false;
+    }
+  };
+
+  // Real-time Auto-Sync Effect when Collaborator, Task, Break or Settings change
+  const isFirstRenderForAutoSync = useRef(true);
+  useEffect(() => {
+    if (isFirstRenderForAutoSync.current) {
+      isFirstRenderForAutoSync.current = false;
+      return;
     }
 
-    setState((prev) => ({
-      ...prev,
-      onlineSpreadsheet: {
-        ...(prev.onlineSpreadsheet || { name: 'Planilha Oficial', url: '' }),
-        lastSyncedAt: timestampStr,
-        syncCount: (prev.onlineSpreadsheet?.syncCount || 0) + 1,
-      },
-    }));
-
-    showNotice(`Planilha "${currentConfig.name}" atualizada com os dados do dia ${formatDateBR(state.selectedDate)}!`);
-    return true;
-  };
+    if (
+      state.onlineSpreadsheet &&
+      state.onlineSpreadsheet.webhookUrl &&
+      state.onlineSpreadsheet.autoSyncEnabled !== false
+    ) {
+      const timer = setTimeout(() => {
+        syncToOnlineSpreadsheet(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    state.collaborators,
+    state.tasks,
+    state.breaks,
+    state.attendance,
+    state.intervals,
+    state.teamName,
+    state.sector,
+    state.manager,
+    state.teamShift,
+    state.roles,
+    state.categories,
+    state.teamLeaders,
+    state.selectedDate,
+  ]);
 
   return (
     <AppContext.Provider
@@ -1107,7 +1316,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setOnlineSpreadsheetConfig,
         syncToOnlineSpreadsheet,
         exportLocalSpreadsheet,
+        exportTeamRosterSpreadsheet,
         generateTemplateSpreadsheet,
+        toggleSidebarCollapsed,
+        setSidebarCollapsed,
       }}
     >
       {children}

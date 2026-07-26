@@ -82,6 +82,7 @@ export interface OnlineSpreadsheetConfig {
   name: string; // e.g. "Planilha Oficial de Turnos - Logística T2"
   url: string; // e.g. "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit"
   webhookUrl?: string; // Optional Google Apps Script Web App / Webhook URL
+  autoSyncEnabled?: boolean; // Real-time auto sync on edit
   lastSyncedAt?: string; // e.g. "25/07/2026 12:30:00"
   syncCount?: number;
 }
@@ -125,4 +126,5 @@ export interface AppState {
   }>;
   dailyReports: Record<string, DailyReport>;
   onlineSpreadsheet?: OnlineSpreadsheetConfig | null;
+  isSidebarCollapsed?: boolean;
 }

@@ -10,10 +10,18 @@ export const ReportView: React.FC = () => {
     setOccurrence,
     setGeneralNotes,
     saveDailyReport,
+    syncToOnlineSpreadsheet,
   } = useApp();
 
   const activeDate = state.selectedDate;
   const dayReport = state.dailyReports[activeDate] || {};
+
+  const handleSaveReport = async () => {
+    saveDailyReport();
+    if (state.onlineSpreadsheet) {
+      await syncToOnlineSpreadsheet();
+    }
+  };
 
   const handleDownloadReport = () => {
     const data = {
@@ -32,27 +40,27 @@ export const ReportView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-3 animate-in fade-in duration-200">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[var(--paper)] p-4 rounded-xl border border-[var(--line)]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[var(--paper)] p-3 rounded-xl border border-[var(--line)] shadow-2xs">
         <div>
-          <h3 className="text-lg font-bold text-[var(--ink)]">Relatório Diário Operacional — {formatDateLongBR(activeDate)}</h3>
+          <h3 className="text-base font-black text-[var(--ink)] leading-tight">Relatório Diário — {formatDateLongBR(activeDate)}</h3>
           <p className="text-xs text-[var(--muted)]">
-            Registre ocorrências individuais, justificativas de ausências e notas finais do turno.
+            Ocorrências individuais, justificativas de ausências e notas finais do turno.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={handleDownloadReport}
-            className="px-3 py-2 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-[var(--bg)] flex items-center gap-1.5 text-[var(--ink)]"
+            className="px-2.5 py-1.5 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-[var(--bg)] flex items-center gap-1 text-[var(--ink)] cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Exportar JSON</span>
+            <span>JSON</span>
           </button>
           <button
-            onClick={saveDailyReport}
-            className="px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1.5 shadow-xs"
+            onClick={handleSaveReport}
+            className="px-3.5 py-1.5 bg-[var(--primary)] text-white text-xs font-black rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1 shadow-2xs cursor-pointer"
           >
             <Save className="w-3.5 h-3.5" />
             <span>Salvar Relatório</span>

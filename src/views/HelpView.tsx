@@ -21,6 +21,9 @@ import {
   ShieldAlert,
   Smartphone,
   Copy,
+  Code,
+  Check,
+  ArrowRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -29,27 +32,213 @@ interface HelpViewProps {
 }
 
 export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
-  const { state, generateTemplateSpreadsheet, exportLocalSpreadsheet } = useApp();
+  const { state, generateTemplateSpreadsheet, exportLocalSpreadsheet, exportTeamRosterSpreadsheet, showNotice } = useApp();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [copiedScript, setCopiedScript] = useState(false);
 
   const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? null : index);
   };
 
+  const appsScriptCode = `function doPost(e) {
+  try {
+    var contents = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var timestamp = new Date().toLocaleString("pt-BR");
+    
+    // -------------------------------------------------------------
+    // 1. ABA DE ESCALA DIÁRIA (Colaboradores, Presença, Tarefa e Refeição)
+    // -------------------------------------------------------------
+    var sheetEscala = ss.getSheetByName("Escala Diária") || ss.insertSheet("Escala Diária");
+    
+    // Cria os cabeçalhos se a aba estiver vazia
+    if (sheetEscala.getLastRow() === 0) {
+      sheetEscala.appendRow([
+        "Data da Escala", 
+        "RE (Matrícula)", 
+        "Nome do Colaborador", 
+        "LDAP / Login", 
+        "Setor", 
+        "Gestor", 
+        "Turno", 
+        "Team Leader", 
+        "Escala", 
+        "Cargo", 
+        "Categoria", 
+        "Status no Dia", 
+        "Tarefa Alocada", 
+        "Horário de Intervalo",
+        "Última Atualização"
+      ]);
+      sheetEscala.getRange(1, 1, 1, 15).setFontWeight("bold").setBackground("#dbeafe");
+    }
+    
+    // Adiciona os registros dos colaboradores no dia
+    if (contents.data && contents.data.length > 0) {
+      contents.data.forEach(function(item) {
+        sheetEscala.appendRow([
+          item.date || contents.date || "",
+          item.registration || "",
+          item.name || "",
+          item.login || "",
+          item.sector || contents.sector || "",
+          item.manager || contents.manager || "",
+          item.shift || contents.shift || "",
+          item.teamLeader || "",
+          item.scale || "",
+          item.role || "",
+          item.category || "",
+          item.status || "",
+          item.task || "",
+          item.interval || "",
+          timestamp
+        ]);
+      });
+    }
+    
+    // -------------------------------------------------------------
+    // 2. ABA SEPARADA: RELATÓRIO DE ABSENTEÍSMO E FALTAS
+    // -------------------------------------------------------------
+    if (contents.reports) {
+      var sheetReport = ss.getSheetByName("Relatório de Absenteísmo") || ss.insertSheet("Relatório de Absenteísmo");
+      
+      // Cabeçalhos de resumo
+      if (sheetReport.getLastRow() === 0) {
+        sheetReport.appendRow(["RELATÓRIO DIÁRIO DE ABSENTEÍSMO E OCORRÊNCIAS"]);
+        sheetReport.getRange("A1").setFontWeight("bold").setFontSize(13);
+        sheetReport.appendRow([
+          "Data", "Total Equipe", "Presentes", "Faltas/Ausentes", "Férias", 
+          "Licença/Treinamento", "Folgas", "Taxa de Absenteísmo", "Observações Gerais", "Gerado Em"
+        ]);
+        sheetReport.getRange(2, 1, 1, 10).setFontWeight("bold").setBackground("#fef3c7");
+      }
+      
+      // Linha de resumo do relatório
+      var r = contents.reports;
+      sheetReport.appendRow([
+        r.date || "",
+        r.totalCollaborators || 0,
+        r.presentCount || 0,
+        r.absentCount || 0,
+        r.vacationCount || 0,
+        r.leaveTrainingCount || 0,
+        r.offCount || 0,
+        r.absenteeismRate || "0%",
+        r.generalNotes || "",
+        r.generatedAt || timestamp
+      ]);
+      
+      // Adiciona detalhamento de ausências/ocorrências se houver
+      if (r.absencesAndOccurrences && r.absencesAndOccurrences.length > 0) {
+        sheetReport.appendRow([]);
+        sheetReport.appendRow(["DETALHAMENTO DAS AUSÊNCIAS E OCORRÊNCIAS (" + (r.date || "") + ")"]);
+        sheetReport.getRange(sheetReport.getLastRow(), 1).setFontWeight("bold");
+        
+        sheetReport.appendRow([
+          "Data", "RE", "Nome", "LDAP", "Cargo", "Categoria", "Team Leader", 
+          "Status", "Justificativa / Motivo da Ausência", "Ocorrência Registrada"
+        ]);
+        sheetReport.getRange(sheetReport.getLastRow(), 1, 1, 10).setFontWeight("bold").setBackground("#e5e7eb");
+        
+        r.absencesAndOccurrences.forEach(function(item) {
+          sheetReport.appendRow([
+            item.date || "",
+            item.registration || "",
+            item.name || "",
+            item.login || "",
+            item.role || "",
+            item.category || "",
+            item.teamLeader || "",
+            item.status || "",
+            item.absenceReason || "",
+            item.occurrence || ""
+          ]);
+        });
+        sheetReport.appendRow([]); // Linha separadora
+      }
+    }
+    
+    // -------------------------------------------------------------
+    // 3. ABA DE CONFIGURAÇÕES DO SISTEMA (Parâmetros, Cargos e Estrutura)
+    // -------------------------------------------------------------
+    if (contents.settings) {
+      var sheetConfig = ss.getSheetByName("Configurações do Sistema") || ss.insertSheet("Configurações do Sistema");
+      sheetConfig.clear(); // Atualiza com os valores mais recentes
+      
+      sheetConfig.appendRow(["CONFIGURAÇÕES E ESTRUTURA DO SISTEMA - ESCALAPRO"]);
+      sheetConfig.getRange("A1").setFontWeight("bold").setFontSize(13);
+      
+      sheetConfig.appendRow(["Parâmetro", "Valor Configurado"]);
+      sheetConfig.getRange(2, 1, 1, 2).setFontWeight("bold").setBackground("#f3f4f6");
+      
+      sheetConfig.appendRow(["Nome da Equipe", contents.settings.teamName || ""]);
+      sheetConfig.appendRow(["Setor / Operação", contents.settings.sector || ""]);
+      sheetConfig.appendRow(["Gestor Responsável", contents.settings.manager || ""]);
+      sheetConfig.appendRow(["Turno Geral", contents.settings.teamShift || ""]);
+      sheetConfig.appendRow(["Líder de Equipe Padrão", contents.settings.defaultTeamLeader || ""]);
+      sheetConfig.appendRow(["Total de Colaboradores", contents.settings.totalCollaborators || 0]);
+      sheetConfig.appendRow(["Última Sincronização", timestamp]);
+      
+      sheetConfig.appendRow([]);
+      sheetConfig.appendRow(["Estrutura de Cadastro", "Itens Cadastrados"]);
+      sheetConfig.getRange(10, 1, 1, 2).setFontWeight("bold").setBackground("#f3f4f6");
+      sheetConfig.appendRow(["Cargos", (contents.settings.roles || []).join(", ")]);
+      sheetConfig.appendRow(["Categorias", (contents.settings.categories || []).join(", ")]);
+      sheetConfig.appendRow(["Escalas / Turmas", (contents.settings.scales || []).join(", ")]);
+      sheetConfig.appendRow(["Líderes de Equipe", (contents.settings.teamLeaders || []).join(", ")]);
+      sheetConfig.appendRow(["Motivos de Ausência", (contents.settings.reasons || []).join(", ")]);
+      
+      sheetConfig.appendRow([]);
+      sheetConfig.appendRow(["Tarefas Operacionais Cadastradas"]);
+      sheetConfig.getRange(17, 1).setFontWeight("bold");
+      sheetConfig.appendRow(["ID da Tarefa", "Nome da Tarefa", "Membros Alocados"]);
+      if (contents.settings.tasks && contents.settings.tasks.length > 0) {
+        contents.settings.tasks.forEach(function(t) {
+          sheetConfig.appendRow([t.id, t.name, t.membersCount || 0]);
+        });
+      }
+      
+      sheetConfig.appendRow([]);
+      sheetConfig.appendRow(["Horários de Refeição e Intervalo"]);
+      sheetConfig.appendRow(["ID do Slot", "Horário de Intervalo", "Turno"]);
+      if (contents.settings.breaks && contents.settings.breaks.length > 0) {
+        contents.settings.breaks.forEach(function(b) {
+          sheetConfig.appendRow([b.id, b.time, b.shift || "Geral"]);
+        });
+      }
+    }
+    
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "success", message: "Escala e Configurações sincronizadas no Google Sheets!" })
+    ).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "error", error: err.toString() })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+  const handleCopyScript = () => {
+    navigator.clipboard.writeText(appsScriptCode);
+    setCopiedScript(true);
+    showNotice('Código do Google Apps Script copiado para a área de transferência!');
+    setTimeout(() => setCopiedScript(false), 2500);
+  };
+
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-12 animate-in fade-in duration-200">
+    <div className="space-y-3 max-w-6xl mx-auto animate-in fade-in duration-200">
       {/* Hero Welcome Banner */}
-      <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white p-6 sm:p-8 rounded-2xl shadow-lg relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="relative z-10 space-y-3 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-wider text-blue-200 border border-white/15">
-            <HelpCircle className="w-4 h-4 text-blue-300" />
+      <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white p-4 rounded-xl shadow-2xs relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="relative z-10 space-y-1 max-w-2xl">
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-wider text-blue-200 border border-white/15">
+            <HelpCircle className="w-3.5 h-3.5 text-blue-300" />
             <span>Guia Oficial de Uso & Documentação</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
-            Central de Ajuda & Guia Completo do EscalaPro
+          <h2 className="text-lg font-black tracking-tight leading-tight">
+            Central de Ajuda & Guia Completo
           </h2>
-          <p className="text-sm text-blue-100 font-medium leading-relaxed">
-            Aprenda a utilizar todas as ferramentas de dimensionamento por <strong>Turno (T1 a T5)</strong>, gestão de presença, portal do colaborador, matrículas por cargos (<strong>REP, PS, TL</strong>), categorias (<strong>Inventario, Qualidade, Picking, Packing, Put-Away</strong>) e skills (<strong>Expert, HV, OP.Maquina</strong>).
+          <p className="text-xs text-blue-100 font-medium">
+            Ferramentas de dimensionamento por Turno (T1 a T5), gestão de presença, portal do colaborador, cargos e skills.
           </p>
         </div>
 
@@ -57,19 +246,17 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
           <div className="relative z-10 shrink-0">
             <button
               onClick={onOpenTutorial}
-              className="px-5 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer border border-emerald-400"
+              className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black rounded-lg shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer border border-emerald-400"
             >
-              <Sparkles className="w-4 h-4" />
-              <span>Abrir Tutorial Interativo</span>
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Tutorial Interativo</span>
             </button>
           </div>
         )}
-
-        <HelpCircle className="absolute -right-8 -bottom-8 w-64 h-64 text-white/5 pointer-events-none" />
       </div>
 
-      {/* Featured Section: Google Sheets Database Integration Tutorial */}
-      <div className="bg-[var(--paper)] border-2 border-emerald-500/30 dark:border-emerald-500/20 p-6 sm:p-8 rounded-2xl shadow-sm space-y-6">
+      {/* Featured Section: Complete Step-by-Step Google Sheets & Webhook Guide */}
+      <div className="bg-[var(--paper)] border-2 border-emerald-500/40 dark:border-emerald-500/30 p-6 sm:p-8 rounded-2xl shadow-sm space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--line)] pb-5">
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0">
@@ -77,95 +264,248 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black text-[var(--ink)]">
-                  Como Conectar & Usar o Google Sheets como Banco de Dados
+                <h3 className="text-xl font-black text-[var(--ink)]">
+                  Guia de Integração: Google Sheets & Webhook Automático
                 </h3>
                 <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 rounded-md text-[10px] font-black uppercase">
-                  Novo Recurso
+                  Passo a Passo Oficial
                 </span>
               </div>
-              <p className="text-xs text-[var(--muted)] font-medium">
-                Passo a passo simples para salvar e compartilhar o histórico de escalas da equipe entre gestores e administradores.
+              <p className="text-xs text-[var(--muted)] font-medium mt-0.5">
+                Aprenda a baixar o modelo, converter no Google Sheets, preencher os dados, compartilhar o link correto e integrar via Webhook.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          {state.collaborators.length > 0 ? (
             <button
-              onClick={generateTemplateSpreadsheet}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-xs transition-colors"
+              onClick={exportTeamRosterSpreadsheet}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl flex items-center gap-2 shadow-xs transition-colors shrink-0 cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>Baixar Modelo (.CSV)</span>
+              <span>Gerar Planilha da Equipe ({state.collaborators.length} .CSV)</span>
             </button>
-          </div>
+          ) : (
+            <button
+              onClick={generateTemplateSpreadsheet}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl flex items-center gap-2 shadow-xs transition-colors shrink-0 cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>1. Baixar Modelo (.CSV)</span>
+            </button>
+          )}
         </div>
 
-        {/* 5-Step Tutorial Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Step 1 */}
-          <div className="bg-[var(--bg)] border border-[var(--line)] p-4 rounded-xl space-y-2 relative">
-            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 font-black text-xs flex items-center justify-center border border-emerald-300 dark:border-emerald-800">
-              1
+        {/* Step-by-Step Vertical List */}
+        <div className="space-y-6">
+          {/* STEP 1 */}
+          <div className="bg-[var(--bg)] border border-[var(--line)] p-5 rounded-2xl space-y-3 relative overflow-hidden">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
+                1
+              </span>
+              <h4 className="text-sm font-black text-[var(--ink)] uppercase tracking-wide">
+                Baixar ou Exportar a Planilha de Dados (.CSV)
+              </h4>
             </div>
-            <h4 className="text-xs font-extrabold text-[var(--ink)] uppercase tracking-wider">
-              Criar ou Usar uma Planilha
-            </h4>
-            <p className="text-xs text-[var(--muted)] leading-relaxed">
-              Crie uma nova planilha no <strong>Google Sheets</strong> (ou clique no botão acima para baixar nosso modelo pronto em CSV e importar no Google Drive).
+            <p className="text-xs text-[var(--muted)] leading-relaxed pl-11">
+              {state.collaborators.length > 0
+                ? `Como você já possui ${state.collaborators.length} colaborador(es) cadastrado(s) na aplicação, clique no botão abaixo para exportar o arquivo pré-preenchido com a sua equipe real!`
+                : 'O EscalaPro disponibiliza um arquivo modelo pré-formatado em formato .CSV contendo todas as colunas necessárias para o dimensionamento perfeito da equipe.'}
             </p>
+            <div className="pl-11 pt-1 flex flex-wrap items-center gap-2.5">
+              {state.collaborators.length > 0 && (
+                <button
+                  onClick={exportTeamRosterSpreadsheet}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl flex items-center gap-2 shadow-2xs transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Exportar Minha Equipe Cadastrada ({state.collaborators.length} Colaboradores .CSV)</span>
+                </button>
+              )}
+              <button
+                onClick={generateTemplateSpreadsheet}
+                className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-2 shadow-2xs transition-colors cursor-pointer ${
+                  state.collaborators.length > 0
+                    ? 'border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:bg-[var(--bg)]'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Baixar Modelo Em Branco (.CSV)</span>
+              </button>
+            </div>
+            <div className="pl-11 pt-1 text-[11px] text-[var(--muted)] bg-[var(--paper)] p-3 rounded-xl border border-[var(--line)] font-mono">
+              <strong>Estrutura de Colunas:</strong> RE (Matrícula), Nome, LDAP, Setor, Gestor, Turno, Team Leader, Escala, Cargo, Categoria, Observações
+            </div>
           </div>
 
-          {/* Step 2 */}
-          <div className="bg-[var(--bg)] border border-[var(--line)] p-4 rounded-xl space-y-2 relative">
-            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 font-black text-xs flex items-center justify-center border border-emerald-300 dark:border-emerald-800">
-              2
+          {/* STEP 2 */}
+          <div className="bg-[var(--bg)] border border-[var(--line)] p-5 rounded-2xl space-y-3 relative overflow-hidden">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
+                2
+              </span>
+              <h4 className="text-sm font-black text-[var(--ink)] uppercase tracking-wide">
+                Converter o Arquivo CSV para Planilha do Google Sheets
+              </h4>
             </div>
-            <h4 className="text-xs font-extrabold text-[var(--ink)] uppercase tracking-wider">
-              Copiar o Link de Compartilhamento
-            </h4>
-            <p className="text-xs text-[var(--muted)] leading-relaxed">
-              No Google Sheets, clique em <strong>Compartilhar</strong> no canto superior direito e garanta permissão de visualização ou edição para os gestores da sua equipe. Copie o link completo da URL.
-            </p>
+            <div className="pl-11 space-y-2 text-xs text-[var(--muted)] leading-relaxed">
+              <ol className="list-decimal pl-4 space-y-1.5">
+                <li>
+                  Acesse o <strong>Google Drive</strong> (<a href="https://drive.google.com" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] underline font-bold">drive.google.com</a>) ou abra uma nova planilha no <strong>Google Sheets</strong> (<a href="https://sheets.new" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] underline font-bold">sheets.new</a>).
+                </li>
+                <li>
+                  No menu superior da planilha, clique em <strong>Arquivo (File)</strong> ➔ <strong>Importar (Import)</strong>.
+                </li>
+                <li>
+                  Vá até a aba <strong>Fazer upload (Upload)</strong> e selecione o arquivo <code className="bg-[var(--paper)] px-1.5 py-0.5 rounded border border-[var(--line)] font-mono text-[11px]">.csv</code> baixado no Passo 1.
+                </li>
+                <li>
+                  Em <i>"Local de importação"</i>, escolha <strong>Substituir planilha</strong> ou <strong>Criar nova planilha</strong>. Em <i>"Tipo de separador"</i>, selecione <strong>Detectar automaticamente</strong>.
+                </li>
+                <li>
+                  Clique em <strong>Importar dados</strong>. Pronto! O CSV será convertido em uma planilha Google Sheets nativa.
+                </li>
+              </ol>
+            </div>
           </div>
 
-          {/* Step 3 */}
-          <div className="bg-[var(--bg)] border border-[var(--line)] p-4 rounded-xl space-y-2 relative">
-            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 font-black text-xs flex items-center justify-center border border-emerald-300 dark:border-emerald-800">
-              3
+          {/* STEP 3 */}
+          <div className="bg-[var(--bg)] border border-[var(--line)] p-5 rounded-2xl space-y-3 relative overflow-hidden">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
+                3
+              </span>
+              <h4 className="text-sm font-black text-[var(--ink)] uppercase tracking-wide">
+                Como Preencher os Dados da Sua Equipe Corretamente
+              </h4>
             </div>
-            <h4 className="text-xs font-extrabold text-[var(--ink)] uppercase tracking-wider">
-              Conectar no EscalaPro
-            </h4>
-            <p className="text-xs text-[var(--muted)] leading-relaxed">
-              Vá para a aba <strong>Compartilhar</strong> (ou <strong>Configurações</strong>), clique em <strong>"Gerar / Conectar Planilha Online"</strong>, informe o nome desejado e cole o link da planilha.
-            </p>
+            <div className="pl-11 space-y-2 text-xs text-[var(--muted)] leading-relaxed">
+              <p>Siga as boas práticas de preenchimento para garantir que o sistema leia a planilha sem erros:</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li><strong>RE (Matrícula):</strong> Código do crachá/registro interno (ex: <i>RE-8821</i> ou <i>100293</i>).</li>
+                <li><strong>Nome:</strong> Nome completo do colaborador (ex: <i>Ana Beatris Silva</i>).</li>
+                <li><strong>LDAP:</strong> Identificador único sem espaços (ex: <i>anabs</i>). Usado para consulta no Portal do Colaborador.</li>
+                <li><strong>Turno:</strong> Escolha entre <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">T1</code>, <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">T2</code>, <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">T3</code>, <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">T4</code> ou <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">T5</code>.</li>
+                <li><strong>Turma da Escala (scale):</strong> Código do grupo do ciclo 6x2 (ex: <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">A</code>, <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">B</code>, <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">C</code>, <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">D</code>).</li>
+                <li><strong>Cargo (role):</strong> Sigla ou nome da função (ex: <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">REP</code>, <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">PS</code>, <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">TL</code>, <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">Operador de Processo</code>).</li>
+                <li><strong>Categoria (category):</strong> Setor operacional (ex: <i>Picking, Packing, Qualidade, Inventario, Put-Away</i>).</li>
+                <li><strong>Team Leader / Time:</strong> Nome do time ou supervisor responsável (ex: <i>Time do TL Bruno Silva (T1)</i>).</li>
+              </ul>
+            </div>
           </div>
 
-          {/* Step 4 */}
-          <div className="bg-[var(--bg)] border border-[var(--line)] p-4 rounded-xl space-y-2 relative">
-            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 font-black text-xs flex items-center justify-center border border-emerald-300 dark:border-emerald-800">
-              4
+          {/* STEP 4 */}
+          <div className="bg-[var(--bg)] border border-[var(--line)] p-5 rounded-2xl space-y-3 relative overflow-hidden">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
+                4
+              </span>
+              <h4 className="text-sm font-black text-[var(--ink)] uppercase tracking-wide">
+                Compartilhar da Forma Correta para o Link Funcionar na Aplicação
+              </h4>
             </div>
-            <h4 className="text-xs font-extrabold text-[var(--ink)] uppercase tracking-wider">
-              Sincronizar Diariamente
-            </h4>
-            <p className="text-xs text-[var(--muted)] leading-relaxed">
-              Sempre que definir a escala do dia, basta clicar no botão verde no topo: <strong>"Atualizar Dados na Planilha Online (Nome da Planilha)"</strong>.
-            </p>
+            <div className="pl-11 space-y-2 text-xs text-[var(--muted)] leading-relaxed">
+              <p>Para que o EscalaPro consiga se conectar à planilha, configure as permissões no Google Sheets da seguinte forma:</p>
+              <ol className="list-decimal pl-4 space-y-1.5">
+                <li>
+                  No canto superior direito da planilha no Google Sheets, clique no botão verde <strong>Compartilhar (Share)</strong>.
+                </li>
+                <li>
+                  Em <i>"Acesso geral" (General Access)</i>, altere de <strong>"Restrito"</strong> para <strong>"Qualquer pessoa com o link"</strong> (<i>Anyone with the link</i>).
+                </li>
+                <li>
+                  Mantenha a permissão como <strong>"Editor"</strong> (se desejar sincronização total) ou <strong>"Leitor"</strong>.
+                </li>
+                <li>
+                  Clique em <strong>Copiar link</strong> (o link terá o formato <code className="bg-[var(--paper)] px-1.5 py-0.5 rounded border border-[var(--line)] font-mono text-[11px]">https://docs.google.com/spreadsheets/d/ID_DA_PLANILHA/edit</code>).
+                </li>
+                <li>
+                  No EscalaPro, acesse o menu <strong>Compartilhar</strong> (ou <strong>Configurações</strong>), clique no botão <strong>"Gerar / Conectar Planilha Online"</strong>, cole o link e clique em **Salvar & Conectar**.
+                </li>
+              </ol>
+            </div>
           </div>
 
-          {/* Step 5 */}
-          <div className="bg-[var(--bg)] border border-[var(--line)] p-4 rounded-xl space-y-2 relative md:col-span-2 lg:col-span-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 font-black text-xs flex items-center justify-center border border-emerald-300 dark:border-emerald-800">
-              5
+          {/* STEP 5 */}
+          <div className="bg-[var(--bg)] border border-[var(--line)] p-5 rounded-2xl space-y-4 relative overflow-hidden">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
+                5
+              </span>
+              <h4 className="text-sm font-black text-[var(--ink)] uppercase tracking-wide">
+                Etapas de Integração Webhook via Google Apps Script (Gravação Automática em Tempo Real)
+              </h4>
             </div>
-            <h4 className="text-xs font-extrabold text-[var(--ink)] uppercase tracking-wider">
-              Automação via Google Apps Script (Opcional)
-            </h4>
-            <p className="text-xs text-[var(--muted)] leading-relaxed">
-              Se desejar gravar os registros linha a linha na planilha de forma automatizada via HTTP, cole a URL de Webhook do seu projeto do Apps Script no campo opcional. A aplicação enviará o payload completo em JSON a cada sincronização.
-            </p>
+
+            <div className="pl-11 space-y-3 text-xs text-[var(--muted)] leading-relaxed">
+              <p>
+                Se você deseja que cada sincronização diária da escala seja registrada automaticamente como um novo histórico linha a linha no Google Sheets, siga este tutorial de Webhook:
+              </p>
+
+              <ol className="list-decimal pl-4 space-y-2">
+                <li>
+                  Com a planilha aberta no Google Sheets, acesse o menu superior <strong>Extensões (Extensions)</strong> ➔ <strong>Apps Script</strong>.
+                </li>
+                <li>
+                  Apague todo o código padrão existente na tela do editor e cole o código oficial abaixo:
+                </li>
+              </ol>
+
+              {/* Code Box */}
+              <div className="my-2 bg-slate-900 text-slate-100 p-4 rounded-xl border border-slate-800 space-y-3 font-mono text-xs overflow-x-auto relative shadow-inner">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-[11px] text-slate-400">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <Code className="w-3.5 h-3.5 text-emerald-400" />
+                    Google Apps Script (Code.gs)
+                  </span>
+                  <button
+                    onClick={handleCopyScript}
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-sans text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    {copiedScript ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedScript ? 'Copiado!' : 'Copiar Código'}</span>
+                  </button>
+                </div>
+                <pre className="text-[11px] leading-relaxed text-emerald-300 whitespace-pre font-mono">
+                  {appsScriptCode}
+                </pre>
+              </div>
+
+              <ol className="list-decimal pl-4 space-y-2 pt-1" start={3}>
+                <li>
+                  No canto superior direito da página do Apps Script, clique no botão azul <strong>Implantar (Deploy)</strong> ➔ <strong>Nova implantação (New deployment)</strong>.
+                </li>
+                <li>
+                  No painel que se abre, clique no ícone de engrenagem ao lado de <i>"Selecionar tipo"</i> e selecione <strong>App da Web (Web App)</strong>.
+                </li>
+                <li>
+                  Preencha as configurações de implantação exatamente assim:
+                  <ul className="list-disc pl-5 my-1 space-y-0.5 text-[11px]">
+                    <li><strong>Descrição:</strong> Webhook EscalaPro</li>
+                    <li><strong>Executar como (Execute as):</strong> <code className="bg-[var(--paper)] px-1 py-0.5 rounded font-bold">Eu (seu e-mail)</code></li>
+                    <li><strong>Quem tem acesso (Who has access):</strong> <strong className="text-emerald-700 dark:text-emerald-300">Qualquer pessoa (Anyone)</strong> *(Essencial! Se mantido como restrito, a sincronização será bloqueada pelo Google)*</li>
+                  </ul>
+                </li>
+                <li>
+                  Clique em <strong>Implantar</strong>. O Google pedirá autorização para acessar a planilha. Clique em <i>"Autorizar acesso"</i> e conclua a ativação.
+                </li>
+                <li>
+                  Copie a <strong>URL do App da Web</strong> gerada (o link termina com <code className="bg-[var(--paper)] px-1.5 py-0.5 rounded font-mono text-[11px]">/exec</code>).
+                </li>
+                <li>
+                  No EscalaPro, abra a janela de <strong>Conectar Planilha Online</strong>, cole a URL copiada no campo <strong>"URL do Webhook (Google Apps Script)"</strong> e clique em <strong>Salvar & Conectar</strong>.
+                </li>
+              </ol>
+
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3.5 rounded-xl text-emerald-900 dark:text-emerald-200 text-xs font-medium flex items-start gap-2 mt-3">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Pronto! Integração Concluída!</strong> Agora, sempre que você clicar no botão verde <i>"Atualizar Dados na Planilha Online"</i> na tela de Compartilhar ou no topo do aplicativo, os dados serão gravados em tempo real na sua planilha no Google Sheets!
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

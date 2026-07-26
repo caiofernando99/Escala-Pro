@@ -97,9 +97,9 @@ export const CalendarView: React.FC = () => {
     const days = Array.from({ length: totalDays }, (_, i) => i + 1);
 
     return (
-      <div key={monthIndex} className="bg-[var(--paper)] border border-[var(--line)] rounded-xl p-3 shadow-xs">
-        <h4 className="text-sm font-bold text-center text-[var(--ink)] mb-2">{MONTH_NAMES[monthIndex]}</h4>
-        <div className="grid grid-cols-7 text-center text-[10px] font-bold text-[var(--muted)] border-b border-[var(--line)] pb-1 mb-1">
+      <div key={monthIndex} className="bg-[var(--paper)] border border-[var(--line)] rounded-xl p-2 shadow-2xs">
+        <h4 className="text-xs font-black text-center text-[var(--ink)] mb-1 uppercase tracking-tight">{MONTH_NAMES[monthIndex]}</h4>
+        <div className="grid grid-cols-7 text-center text-[9px] font-extrabold text-[var(--muted)] border-b border-[var(--line)] pb-0.5 mb-1">
           <span>D</span>
           <span>S</span>
           <span>T</span>
@@ -108,7 +108,7 @@ export const CalendarView: React.FC = () => {
           <span>S</span>
           <span>S</span>
         </div>
-        <div className="grid grid-cols-7 gap-1 text-center">
+        <div className="grid grid-cols-7 gap-0.5 text-center">
           {blanks.map((_, idx) => (
             <div key={`blank-${idx}`} className="aspect-square" />
           ))}
@@ -122,7 +122,7 @@ export const CalendarView: React.FC = () => {
                 key={dayStr}
                 onClick={() => handleDayClick(dayStr)}
                 onDoubleClick={() => setDate(dayStr)}
-                className={`aspect-square text-[11px] font-semibold rounded flex items-center justify-center transition-all ${
+                className={`aspect-square text-[9.5px] font-bold rounded flex items-center justify-center transition-all cursor-pointer ${
                   offGroup ? SHIFT_COLORS[offGroup] : 'bg-[var(--bg)] hover:bg-[var(--primary-soft)] hover:text-[var(--primary)] text-[var(--ink)]'
                 } ${isSelectedDay ? 'ring-2 ring-[var(--ink)] font-black scale-105' : ''}`}
                 title={offGroup ? `Folga Turma ${offGroup}` : 'Clique para marcar folga'}
@@ -137,106 +137,114 @@ export const CalendarView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[var(--paper)] p-4 rounded-xl border border-[var(--line)]">
-        <div>
-          <h3 className="text-lg font-bold text-[var(--ink)]">Calendário Anual da Escala 6x2</h3>
-          <p className="text-xs text-[var(--muted)]">
-            Selecione a turma em folga e clique nos dias para personalizar, ou gere o ciclo automático para o ano todo.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleLoadSuggestedScale}
-            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-extrabold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            title="Preencher calendário com a sugestão oficial de escala de Julho a Dezembro de 2026"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Aplicar Escala 2026</span>
-          </button>
-          <label className="px-3 py-1.5 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 text-[var(--ink)] cursor-pointer">
-            <Upload className="w-3.5 h-3.5 text-[var(--muted)]" />
-            <span>Importar JSON</span>
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImportCalendar}
-              className="hidden"
-            />
-          </label>
-          <button
-            onClick={handleExportCalendar}
-            className="px-3 py-1.5 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 text-[var(--ink)]"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Exportar JSON</span>
-          </button>
-          <button
-            onClick={() => setGenModalOpen(true)}
-            className="px-3 py-1.5 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1.5 shadow-xs"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Gerar Ciclo 6x2</span>
-          </button>
-        </div>
-      </div>
+    <div className="space-y-3 animate-in fade-in duration-200">
+      {/* Compact Header & Controls Bar */}
+      <div className="bg-[var(--paper)] p-3 rounded-xl border border-[var(--line)] space-y-2.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 border-b border-[var(--line)] pb-2">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-4 h-4 text-[var(--primary)] shrink-0" />
+            <div>
+              <h3 className="text-sm font-extrabold text-[var(--ink)] leading-tight">Calendário Anual da Escala 6x2</h3>
+              <p className="text-[11px] text-[var(--muted)]">
+                Clique nos dias para marcar folga manual ou gere o ciclo automático para o ano todo.
+              </p>
+            </div>
+          </div>
 
-      {/* Controls Bar */}
-      <div className="bg-[var(--paper)] border border-[var(--line)] p-4 rounded-xl flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-bold text-[var(--muted)]">Ano:</label>
-          <select
-            value={state.year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="bg-[var(--bg)] border border-[var(--line)] rounded-lg px-3 py-1.5 text-sm font-bold text-[var(--ink)]"
-          >
-            <option value={state.year - 1}>{state.year - 1}</option>
-            <option value={state.year}>{state.year}</option>
-            <option value={state.year + 1}>{state.year + 1}</option>
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-bold text-[var(--muted)]">Turma em Folga Selecionada:</label>
-          <div className="flex items-center gap-1">
-            {SHIFT_GROUPS.map((grp) => (
-              <button
-                key={grp}
-                onClick={() => setSelectedOff(grp)}
-                className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
-                  selectedOff === grp
-                    ? `${SHIFT_COLORS[grp]} ring-2 ring-slate-900`
-                    : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                }`}
-              >
-                Turma {grp}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
-              onClick={() => setSelectedOff('')}
-              className={`px-2 py-1 rounded-lg text-xs font-medium border border-[var(--line)] ${
-                selectedOff === '' ? 'bg-slate-200 dark:bg-slate-700 font-bold' : ''
-              }`}
+              onClick={handleLoadSuggestedScale}
+              className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black rounded-lg flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+              title="Preencher calendário com a sugestão oficial de escala 2026"
             >
-              Limpar
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Escala 2026</span>
+            </button>
+            <label className="px-2.5 py-1 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-[var(--bg)] flex items-center gap-1 text-[var(--ink)] cursor-pointer">
+              <Upload className="w-3.5 h-3.5 text-[var(--muted)]" />
+              <span>Importar</span>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImportCalendar}
+                className="hidden"
+              />
+            </label>
+            <button
+              onClick={handleExportCalendar}
+              className="px-2.5 py-1 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-[var(--bg)] flex items-center gap-1 text-[var(--ink)] cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Exportar</span>
+            </button>
+            <button
+              onClick={() => setGenModalOpen(true)}
+              className="px-3 py-1 bg-[var(--primary)] text-white text-xs font-black rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1 shadow-2xs cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Gerar Ciclo 6x2</span>
             </button>
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="ml-auto flex items-center gap-3 text-xs font-semibold">
-          {SHIFT_GROUPS.map((grp) => (
-            <div key={grp} className="flex items-center gap-1">
-              <span className={`w-3 h-3 rounded ${SHIFT_COLORS[grp]}`}></span>
-              <span className="text-[var(--muted)]">Turma {grp}</span>
+        {/* Filters and Group Picker */}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <label className="font-extrabold text-[var(--muted)] text-[11px]">Ano:</label>
+              <select
+                value={state.year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="bg-[var(--bg)] border border-[var(--line)] rounded-lg px-2 py-0.5 text-xs font-black text-[var(--ink)] cursor-pointer"
+              >
+                <option value={state.year - 1}>{state.year - 1}</option>
+                <option value={state.year}>{state.year}</option>
+                <option value={state.year + 1}>{state.year + 1}</option>
+              </select>
             </div>
-          ))}
+
+            <div className="flex items-center gap-1.5">
+              <label className="font-extrabold text-[var(--muted)] text-[11px]">Folga Para:</label>
+              <div className="flex items-center gap-1">
+                {SHIFT_GROUPS.map((grp) => (
+                  <button
+                    key={grp}
+                    onClick={() => setSelectedOff(grp)}
+                    className={`px-2.5 py-0.5 rounded-md text-[11px] font-black transition-all cursor-pointer ${
+                      selectedOff === grp
+                        ? `${SHIFT_COLORS[grp]} ring-2 ring-[var(--ink)] shadow-2xs`
+                        : 'bg-[var(--bg)] text-[var(--ink)] border border-[var(--line)] hover:border-[var(--primary-border)]'
+                    }`}
+                  >
+                    Turma {grp}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setSelectedOff('')}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border border-[var(--line)] cursor-pointer ${
+                    selectedOff === '' ? 'bg-[var(--line)] text-[var(--ink)]' : 'bg-[var(--bg)] text-[var(--muted)]'
+                  }`}
+                >
+                  Limpar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-2.5 text-[11px] font-bold">
+            {SHIFT_GROUPS.map((grp) => (
+              <div key={grp} className="flex items-center gap-1">
+                <span className={`w-2.5 h-2.5 rounded-xs ${SHIFT_COLORS[grp]}`}></span>
+                <span className="text-[var(--muted)]">T-{grp}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* 12 Months Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {/* 12 Months Grid (Adaptive 6 columns on large screens to eliminate vertical scrolling) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
         {MONTH_NAMES.map((_, idx) => renderMonth(idx))}
       </div>
 

@@ -8,13 +8,15 @@ interface ConnectSpreadsheetModalProps {
 }
 
 export const ConnectSpreadsheetModal: React.FC<ConnectSpreadsheetModalProps> = ({ isOpen, onClose }) => {
-  const { state, setOnlineSpreadsheetConfig, generateTemplateSpreadsheet, showNotice } = useApp();
+  const { state, setOnlineSpreadsheetConfig, generateTemplateSpreadsheet, exportTeamRosterSpreadsheet, showNotice } = useApp();
 
   const currentConfig = state.onlineSpreadsheet;
 
-  const [name, setName] = useState(currentConfig?.name || 'Planilha Oficial de Turnos - EscalaPro');
-  const [url, setUrl] = useState(currentConfig?.url || 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit');
+  const [name, setName] = useState(currentConfig?.name || '');
+  const [url, setUrl] = useState(currentConfig?.url || '');
   const [webhookUrl, setWebhookUrl] = useState(currentConfig?.webhookUrl || '');
+  const [autoSync, setAutoSync] = useState<boolean>(currentConfig?.autoSyncEnabled !== false);
+  const [isTesting, setIsTesting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -33,6 +35,7 @@ export const ConnectSpreadsheetModal: React.FC<ConnectSpreadsheetModalProps> = (
       name: name.trim(),
       url: url.trim(),
       webhookUrl: webhookUrl.trim() || undefined,
+      autoSyncEnabled: autoSync,
       lastSyncedAt: currentConfig?.lastSyncedAt || '',
       syncCount: currentConfig?.syncCount || 0,
     });
@@ -105,9 +108,39 @@ export const ConnectSpreadsheetModal: React.FC<ConnectSpreadsheetModalProps> = (
           </div>
 
           <div className="space-y-1.5 pt-1">
-            <label className="text-xs font-bold text-[var(--ink)] uppercase tracking-wider block">
-              URL do Webhook (Google Apps Script — Opcional)
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-xs font-bold text-[var(--ink)] uppercase tracking-wider block">
+                URL do Webhook (Google Apps Script — Opcional)
+              </label>
+              {webhookUrl.trim() && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (webhookUrl.includes('docs.google.com/spreadsheets')) {
+                      showNotice('A URL do Webhook deve ser o link do Web App do Apps Script (iniciando com https://script.google.com/macros/s/.../exec) e não o link da planilha.');
+                      return;
+                    }
+                    setIsTesting(true);
+                    setOnlineSpreadsheetConfig({
+                      name: name.trim() || 'Planilha Oficial',
+                      url: url.trim() || 'https://docs.google.com',
+                      webhookUrl: webhookUrl.trim(),
+                      autoSyncEnabled: autoSync,
+                    });
+                    const success = await useApp().syncToOnlineSpreadsheet();
+                    setIsTesting(false);
+                    if (success) {
+                      showNotice('Conexão testada e aprovada! Planilha atualizada na nuvem.');
+                    }
+                  }}
+                  disabled={isTesting}
+                  className="px-2.5 py-1 bg-[var(--primary-soft)] hover:bg-[var(--line)] text-[var(--primary)] text-[11px] font-extrabold rounded-lg border border-[var(--primary-border)] flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isTesting ? 'animate-spin' : ''}`} />
+                  <span>{isTesting ? 'Testando...' : 'Testar Conexão'}</span>
+                </button>
+              )}
+            </div>
             <input
               type="url"
               value={webhookUrl}
@@ -115,26 +148,58 @@ export const ConnectSpreadsheetModal: React.FC<ConnectSpreadsheetModalProps> = (
               placeholder="https://script.google.com/macros/s/.../exec"
               className="w-full px-3.5 py-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-[var(--primary)]"
             />
+            {webhookUrl.includes('docs.google.com/spreadsheets') && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
+                ⚠️ Aenção: Você inseriu o link da planilha. O Webhook deve ser a URL gerada no Google Apps Script (terminando em /exec).
+              </p>
+            )}
             <p className="text-[11px] text-[var(--muted)]">
-              Caso utilize um script automatizado no Google Sheets, este endpoint receberá atualizações em tempo real ao clicar no botão de sincronizar.
+              Caso utilize o script no Google Sheets, o endpoint atualiza automaticamente a escala e as configurações do sistema.
             </p>
+
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                type="checkbox"
+                id="autoSyncModal"
+                checked={autoSync}
+                onChange={(e) => setAutoSync(e.target.checked)}
+                className="w-4 h-4 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer"
+              />
+              <label htmlFor="autoSyncModal" className="text-xs font-extrabold text-[var(--ink)] cursor-pointer">
+                Sincronização Automática em Tempo Real (Auto-Sync ao alterar colaboradores ou configurações)
+              </label>
+            </div>
           </div>
 
           <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 p-3.5 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
             <Shield className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <span className="font-bold">Ainda não criou a planilha no Google Sheets?</span>
+            <div className="space-y-1 w-full">
+              <span className="font-bold">Dica para criar sua planilha compartilhada:</span>
               <p className="text-[11px] opacity-90">
-                Você pode baixar um modelo inicial no botão abaixo para importar no Google Sheets e compartilhar com seus gestores.
+                {state.collaborators.length > 0
+                  ? `Exporte os dados da sua equipe (${state.collaborators.length} membros) para criar sua planilha no Google Sheets:`
+                  : 'Você pode baixar um modelo inicial no botão abaixo para importar no Google Sheets:'}
               </p>
-              <button
-                type="button"
-                onClick={generateTemplateSpreadsheet}
-                className="mt-1 inline-flex items-center gap-1.5 font-bold text-[11px] text-amber-700 dark:text-amber-300 underline hover:no-underline"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Baixar Planilha Modelo (.CSV)</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                {state.collaborators.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={exportTeamRosterSpreadsheet}
+                    className="inline-flex items-center gap-1.5 font-black text-[11px] text-amber-800 dark:text-amber-200 bg-amber-200/60 dark:bg-amber-900/40 px-2.5 py-1 rounded-lg border border-amber-300 dark:border-amber-800 hover:bg-amber-200 transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Gerar Planilha da Equipe ({state.collaborators.length} .CSV)</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={generateTemplateSpreadsheet}
+                  className="inline-flex items-center gap-1.5 font-bold text-[11px] text-amber-700 dark:text-amber-300 underline hover:no-underline"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Baixar Modelo Em Branco (.CSV)</span>
+                </button>
+              </div>
             </div>
           </div>
 

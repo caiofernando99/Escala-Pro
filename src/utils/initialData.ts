@@ -231,10 +231,5 @@ export const initialAppState: AppState = {
   },
   history: [],
   dailyReports: {},
-  onlineSpreadsheet: {
-    name: 'Planilha Oficial de Escala & Turnos (Google Sheets)',
-    url: 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit',
-    lastSyncedAt: '',
-    syncCount: 0,
-  },
+  onlineSpreadsheet: null,
 };

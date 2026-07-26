@@ -21,6 +21,8 @@ import {
   History,
   Info,
   AlertTriangle,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 import { ThemeOption } from '../types';
 import { BRAND_OPTIONS, DEFAULT_BRAND } from '../utils/brands';
@@ -41,6 +43,8 @@ export const SettingsView: React.FC = () => {
     createAutoBackup,
     restoreFromAutoBackup,
     disconnectOnlineSpreadsheet,
+    toggleSidebarCollapsed,
+    setSidebarCollapsed,
   } = useApp();
 
   const [resetModalOpen, setResetModalOpen] = useState(false);
@@ -53,6 +57,9 @@ export const SettingsView: React.FC = () => {
   );
   const [webhookUrl, setWebhookUrl] = useState(
     state.onlineSpreadsheet?.webhookUrl || ''
+  );
+  const [autoSync, setAutoSync] = useState(
+    state.onlineSpreadsheet?.autoSyncEnabled !== false
   );
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -73,6 +80,7 @@ export const SettingsView: React.FC = () => {
       name: sheetName.trim(),
       url: sheetUrl.trim(),
       webhookUrl: webhookUrl.trim() || undefined,
+      autoSyncEnabled: autoSync,
       lastSyncedAt: state.onlineSpreadsheet?.lastSyncedAt || '',
       syncCount: state.onlineSpreadsheet?.syncCount || 0,
     });
@@ -219,74 +227,118 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <div className="space-y-3 animate-in fade-in duration-200">
       {/* App Identity Info */}
-      <div className="bg-[var(--paper)] border border-[var(--line)] p-6 rounded-2xl flex items-center justify-between shadow-2xs">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-xl shadow-sm">
+      <div className="bg-[var(--paper)] border border-[var(--line)] p-3 rounded-xl flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-2xs">
             EP
           </div>
           <div>
-            <h3 className="text-lg font-extrabold text-[var(--ink)]">EscalaPro — Sistema de Gestão 6x2</h3>
-            <p className="text-xs text-[var(--muted)] font-medium">
-              Gestão de escalas, dimensionamento de tarefas, controle de presença e intervalos de refeição.
+            <h3 className="text-sm font-extrabold text-[var(--ink)] leading-tight">EscalaPro — Sistema de Gestão 6x2</h3>
+            <p className="text-[11px] text-[var(--muted)] font-medium">
+              Gestão de escalas, dimensionamento, presença e intervalos de refeição.
             </p>
           </div>
         </div>
-        <span className="text-xs font-black px-3 py-1 bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 rounded-full border border-emerald-300 dark:border-emerald-800">
-          Versão Operacional 2.5
+        <span className="text-[10px] font-black px-2.5 py-0.5 bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 rounded-full border border-emerald-300 dark:border-emerald-800 shrink-0">
+          v2.5
         </span>
       </div>
 
-      {/* Themes Section */}
-      <div className="bg-[var(--paper)] border border-[var(--line)] p-6 rounded-2xl space-y-4">
-        <div className="flex items-center gap-2 text-[var(--primary)] font-bold text-sm">
-          <Palette className="w-5 h-5" />
-          <h3 className="text-base text-[var(--ink)]">Personalização de Temas Visuais</h3>
-        </div>
-        <p className="text-xs text-[var(--muted)]">
-          Escolha o tema de cores que melhor se adapta ao seu ambiente de trabalho ou preferência visual.
-        </p>
+      {/* Navigation & Interface Controls */}
+      <div className="bg-[var(--paper)] border border-[var(--line)] p-5 rounded-2xl space-y-3 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary-border)] rounded-xl">
+              <PanelLeft className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-extrabold text-[var(--ink)]">Menu Lateral de Navegação (Sidebar)</h3>
+              <p className="text-xs text-[var(--muted)] font-medium">
+                Reduza o menu lateral para exibir apenas os ícones, liberando mais espaço de tela para a escala.
+              </p>
+            </div>
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                !state.isSidebarCollapsed
+                  ? 'bg-[var(--primary)] text-white shadow-2xs'
+                  : 'bg-[var(--bg)] text-[var(--ink)] border border-[var(--line)] hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <PanelLeft className="w-4 h-4" />
+              <span>Expandido (Padrão)</span>
+            </button>
+
+            <button
+              onClick={() => setSidebarCollapsed(true)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                state.isSidebarCollapsed
+                  ? 'bg-[var(--primary)] text-white shadow-2xs'
+                  : 'bg-[var(--bg)] text-[var(--ink)] border border-[var(--line)] hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <PanelLeftClose className="w-4 h-4" />
+              <span>Reduzido (Apenas Ícones)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Compact Themes Section */}
+      <div className="bg-[var(--paper)] border border-[var(--line)] p-5 rounded-2xl space-y-3 shadow-2xs">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[var(--primary)] font-extrabold text-sm">
+            <Palette className="w-4 h-4" />
+            <h3 className="text-sm text-[var(--ink)]">Personalização de Temas Visuais</h3>
+          </div>
+          <span className="text-[11px] font-bold text-[var(--muted)]">
+            {themeOptions.length} temas disponíveis
+          </span>
+        </div>
+
+        {/* Dense Compact Theme Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 pt-1">
           {themeOptions.map((t) => {
             const isSelected = state.theme === t.id;
             return (
               <button
                 key={t.id}
                 onClick={() => setTheme(t.id)}
-                className={`p-4 rounded-xl border-2 text-left flex flex-col justify-between transition-all relative overflow-hidden ${
+                title={`${t.name} — ${t.desc}`}
+                className={`p-2.5 rounded-xl border-2 text-left flex flex-col justify-between transition-all cursor-pointer relative ${
                   isSelected
-                    ? 'border-[var(--primary)] ring-2 ring-[var(--primary-border)] shadow-md'
-                    : 'border-[var(--line)] hover:border-slate-400 bg-[var(--bg)]'
+                    ? 'border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)] ring-1 ring-[var(--primary-border)]'
+                    : 'border-[var(--line)] hover:border-slate-400 bg-[var(--bg)] text-[var(--ink)]'
                 }`}
               >
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-extrabold text-sm text-[var(--ink)]">{t.name}</span>
-                    {isSelected && (
-                      <span className="p-1 bg-[var(--primary)] text-white rounded-full shrink-0">
-                        <Check className="w-3.5 h-3.5" />
-                      </span>
-                    )}
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="w-3 h-3 rounded-full border border-slate-300 shrink-0"
+                      style={{ backgroundColor: t.colorBg }}
+                    ></span>
+                    <span
+                      className="w-3 h-3 rounded-full border border-slate-300 shrink-0"
+                      style={{ backgroundColor: t.colorAccent }}
+                    ></span>
                   </div>
-                  <div className="mb-2">
-                    <span className="px-2 py-0.5 bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary-border)] rounded text-[10px] font-black uppercase">
-                      {t.category}
+                  {isSelected && (
+                    <span className="p-0.5 bg-[var(--primary)] text-white rounded-full shrink-0">
+                      <Check className="w-3 h-3" />
                     </span>
-                  </div>
-                  <p className="text-xs text-[var(--muted)] mb-4">{t.desc}</p>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2 pt-2 border-t border-[var(--line)]">
-                  <span
-                    className="w-5 h-5 rounded-full border border-slate-300"
-                    style={{ backgroundColor: t.colorBg }}
-                  ></span>
-                  <span
-                    className="w-5 h-5 rounded-full border border-slate-300"
-                    style={{ backgroundColor: t.colorAccent }}
-                  ></span>
+                <div>
+                  <div className="font-extrabold text-[11px] leading-tight truncate">{t.name}</div>
+                  <div className="text-[9px] font-bold opacity-75 uppercase truncate mt-0.5">
+                    {t.category}
+                  </div>
                 </div>
               </button>
             );
@@ -371,9 +423,39 @@ export const SettingsView: React.FC = () => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[var(--ink)] uppercase tracking-wider block">
-              URL do Webhook (Google Apps Script Web App — Opcional)
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-xs font-bold text-[var(--ink)] uppercase tracking-wider block">
+                URL do Webhook (Google Apps Script Web App — Opcional)
+              </label>
+              {webhookUrl.trim() && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (webhookUrl.includes('docs.google.com/spreadsheets')) {
+                      showNotice('A URL do Webhook deve ser o link do Web App do Apps Script (iniciando com https://script.google.com/macros/s/.../exec) e não o link da planilha.');
+                      return;
+                    }
+                    setIsSyncing(true);
+                    setOnlineSpreadsheetConfig({
+                      name: sheetName.trim() || 'Planilha Oficial',
+                      url: sheetUrl.trim() || 'https://docs.google.com',
+                      webhookUrl: webhookUrl.trim(),
+                      autoSyncEnabled: autoSync,
+                    });
+                    const success = await syncToOnlineSpreadsheet();
+                    setIsSyncing(false);
+                    if (success) {
+                      showNotice('Conexão testada e aprovada! Planilha atualizada na nuvem.');
+                    }
+                  }}
+                  disabled={isSyncing}
+                  className="px-2.5 py-1 bg-[var(--primary-soft)] hover:bg-[var(--line)] text-[var(--primary)] text-[11px] font-extrabold rounded-lg border border-[var(--primary-border)] flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isSyncing ? 'Testando Conexão...' : 'Testar Conexão'}</span>
+                </button>
+              )}
+            </div>
             <input
               type="url"
               value={webhookUrl}
@@ -381,8 +463,29 @@ export const SettingsView: React.FC = () => {
               placeholder="https://script.google.com/macros/s/.../exec"
               className="w-full px-3.5 py-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-[var(--primary)]"
             />
+            {webhookUrl.includes('docs.google.com/spreadsheets') && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
+                ⚠️ Atenção: Você inseriu o link direto da planilha. O Webhook deve ser a URL do Web App gerada no Google Apps Script (iniciando com https://script.google.com/macros/s/.../exec).
+              </p>
+            )}
             <p className="text-[11px] text-[var(--muted)]">
-              Sua equipe pode publicar um Web App simples no Google Apps Script para receber e gravar as alterações diretamente na tabela do Google Sheets.
+              Sua equipe pode publicar um Web App simples no Google Apps Script para receber e gravar as alterações de colaboradores, escala e configurações diretamente nas abas do Google Sheets.
+            </p>
+
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                type="checkbox"
+                id="autoSyncSettings"
+                checked={autoSync}
+                onChange={(e) => setAutoSync(e.target.checked)}
+                className="w-4 h-4 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer"
+              />
+              <label htmlFor="autoSyncSettings" className="text-xs font-extrabold text-[var(--ink)] cursor-pointer">
+                Sincronização Automática em Tempo Real
+              </label>
+            </div>
+            <p className="text-[11px] text-[var(--muted)] pl-6">
+              Sincroniza automaticamente qualquer edição de colaborador, posto, escala ou configuração diretamente com o Google Sheets em segundo plano.
             </p>
           </div>
 
@@ -433,13 +536,24 @@ export const SettingsView: React.FC = () => {
           </div>
         </form>
 
-        {state.onlineSpreadsheet?.lastSyncedAt && (
+        {state.onlineSpreadsheet?.lastSyncedAt && state.onlineSpreadsheet?.syncStatus !== 'error' && (
           <div className="bg-[var(--primary-soft)] border border-[var(--primary-border)] p-3.5 rounded-xl text-xs font-extrabold text-[var(--primary)] flex flex-wrap items-center justify-between gap-2">
             <span>
               ÚLTIMA SINCRONIZAÇÃO DA BANCO DE DADOS: <strong>{state.onlineSpreadsheet.lastSyncedAt}</strong>
             </span>
             <span>
               TOTAL DE ATUALIZAÇÕES: <strong>{state.onlineSpreadsheet.syncCount || 0} vezes</strong>
+            </span>
+          </div>
+        )}
+
+        {state.onlineSpreadsheet?.syncStatus === 'error' && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 p-3.5 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2">
+            <span>
+              ⚠️ FALHA NA ÚLTIMA SINCRONIZAÇÃO: {state.onlineSpreadsheet.lastError || 'Não foi possível conectar à planilha online.'}
+            </span>
+            <span className="text-[11px] font-black uppercase text-amber-800 dark:text-amber-300 bg-amber-200/50 dark:bg-amber-900/50 px-2.5 py-1 rounded-md">
+              Exibindo Armazenamento Local
             </span>
           </div>
         )}

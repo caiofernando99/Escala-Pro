@@ -19,6 +19,8 @@ import {
   Users,
   AlertTriangle,
   Archive,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { ShiftGroup, ScheduledAbsence, AbsenceType } from '../types';
 import * as XLSX from 'xlsx';
@@ -52,6 +54,8 @@ export const TeamView: React.FC = () => {
     showNotice,
     addTeamLeader,
     removeTeamLeader,
+    exportTeamRosterSpreadsheet,
+    generateTemplateSpreadsheet,
   } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -261,6 +265,25 @@ export const TeamView: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {state.collaborators.length > 0 ? (
+            <button
+              onClick={exportTeamRosterSpreadsheet}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              title="Exportar os dados da sua equipe para criar sua planilha compartilhada no Google Sheets"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Gerar Planilha da Equipe ({state.collaborators.length} .CSV)</span>
+            </button>
+          ) : (
+            <button
+              onClick={generateTemplateSpreadsheet}
+              className="px-3 py-1.5 border border-emerald-500 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Baixar planilha modelo para preenchimento"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Baixar Modelo (.CSV)</span>
+            </button>
+          )}
           <label className="cursor-pointer px-3 py-1.5 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-[var(--bg)] flex items-center gap-1.5 text-[var(--ink)] transition-colors">
             <Upload className="w-3.5 h-3.5 text-[var(--muted)]" />
             <span>Importar Planilha</span>
@@ -398,332 +421,329 @@ export const TeamView: React.FC = () => {
         </div>
       </div>
 
-      {/* Roles, Categories, Skills Catalogs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Cargos */}
-        <div className="bg-[var(--paper)] border border-[var(--line)] p-4 rounded-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink)] flex items-center gap-1.5">
-              <Briefcase className="w-3.5 h-3.5 text-[var(--primary)]" />
-              <span>Cargos</span>
-            </h4>
-            <span className="text-[10px] bg-[var(--bg)] px-2 py-0.5 rounded font-mono font-bold text-[var(--muted)]">
-              {state.roles.length}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newRole}
-              onChange={(e) => setNewRole(e.target.value)}
-              placeholder="Novo cargo..."
-              className="flex-1 p-1.5 text-xs bg-[var(--bg)] border border-[var(--line)] rounded-lg"
-            />
-            <button
-              onClick={() => {
-                addCatalogItem('roles', newRole);
-                setNewRole('');
-              }}
-              className="px-3 py-1.5 bg-[var(--primary)] text-white text-xs font-bold rounded-lg"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-1">
-            {state.roles.map((r) => (
-              <span
-                key={r}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--primary-soft)] text-[var(--primary)] rounded-md text-xs font-semibold"
-              >
-                <span>{r}</span>
-                <button onClick={() => removeCatalogItem('roles', r)} className="hover:text-red-600">
-                  <X className="w-3 h-3" />
-                </button>
+      {/* Reorganized Catalogs & Tasks Side-by-Side 2-Column Master Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* LEFT COLUMN: Metadata Catalogs Stacked Vertically */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* Cargos */}
+          <div className="bg-[var(--paper)] border border-[var(--line)] p-3.5 rounded-xl space-y-2.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black uppercase tracking-wider text-[var(--ink)] flex items-center gap-1.5">
+                <Briefcase className="w-3.5 h-3.5 text-[var(--primary)]" />
+                <span>Cargos Cadastrados</span>
+              </h4>
+              <span className="text-[10px] bg-[var(--bg)] px-2 py-0.5 rounded-md font-mono font-bold text-[var(--muted)]">
+                {state.roles.length}
               </span>
-            ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newRole}
+                onChange={(e) => setNewRole(e.target.value)}
+                placeholder="Novo cargo..."
+                className="flex-1 p-1.5 text-xs bg-[var(--bg)] border border-[var(--line)] rounded-lg font-semibold"
+              />
+              <button
+                onClick={() => {
+                  addCatalogItem('roles', newRole);
+                  setNewRole('');
+                }}
+                className="px-3 py-1.5 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-1">
+              {state.roles.map((r) => (
+                <span
+                  key={r}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-[var(--primary-soft)] text-[var(--primary)] rounded-md text-xs font-bold"
+                >
+                  <span>{r}</span>
+                  <button onClick={() => removeCatalogItem('roles', r)} className="hover:text-red-600 transition-colors cursor-pointer">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Categorias */}
+          <div className="bg-[var(--paper)] border border-[var(--line)] p-3.5 rounded-xl space-y-2.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black uppercase tracking-wider text-[var(--ink)] flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-amber-500" />
+                <span>Categorias Cadastradas</span>
+              </h4>
+              <span className="text-[10px] bg-[var(--bg)] px-2 py-0.5 rounded-md font-mono font-bold text-[var(--muted)]">
+                {state.categories.length}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder="Nova categoria..."
+                className="flex-1 p-1.5 text-xs bg-[var(--bg)] border border-[var(--line)] rounded-lg font-semibold"
+              />
+              <button
+                onClick={() => {
+                  addCatalogItem('categories', newCategory);
+                  setNewCategory('');
+                }}
+                className="px-3 py-1.5 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-1">
+              {state.categories.map((cat) => (
+                <span
+                  key={cat}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border border-amber-200 dark:border-amber-800 rounded-md text-xs font-bold"
+                >
+                  <span>{cat}</span>
+                  <button onClick={() => removeCatalogItem('categories', cat)} className="hover:text-red-600 transition-colors cursor-pointer">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Skills */}
+          <div className="bg-[var(--paper)] border border-[var(--line)] p-3.5 rounded-xl space-y-2.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black uppercase tracking-wider text-[var(--ink)] flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                <span>Skills & Proficiências</span>
+              </h4>
+              <span className="text-[10px] bg-[var(--bg)] px-2 py-0.5 rounded-md font-mono font-bold text-[var(--muted)]">
+                {state.skills.length}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newSkill}
+                onChange={(e) => setNewSkill(e.target.value)}
+                placeholder="Nova skill..."
+                className="flex-1 p-1.5 text-xs bg-[var(--bg)] border border-[var(--line)] rounded-lg font-semibold"
+              />
+              <button
+                onClick={() => {
+                  addCatalogItem('skills', newSkill);
+                  setNewSkill('');
+                }}
+                className="px-3 py-1.5 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-1">
+              {state.skills.map((s) => (
+                <span
+                  key={s}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-900 dark:bg-purple-950/60 dark:text-purple-200 border border-purple-200 dark:border-purple-800 rounded-md text-xs font-bold"
+                >
+                  <span>{s}</span>
+                  <button onClick={() => removeCatalogItem('skills', s)} className="hover:text-red-600 transition-colors cursor-pointer">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Horários de Intervalo para Refeição */}
+          <div className="bg-[var(--paper)] border border-[var(--line)] p-3.5 rounded-xl space-y-3 shadow-2xs">
+            <h4 className="text-xs font-black uppercase tracking-wider text-[var(--ink)] flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-[var(--primary)]" />
+              <span>Horários de Intervalo de Refeição</span>
+            </h4>
+
+            <div className="flex items-center gap-2 bg-[var(--bg)] p-2 rounded-lg border border-[var(--line)]">
+              <input
+                type="time"
+                value={newBreakTime}
+                onChange={(e) => setNewBreakTime(e.target.value)}
+                className="p-1 bg-[var(--paper)] border border-[var(--line)] rounded-md text-xs font-black text-[var(--ink)]"
+              />
+              <button
+                onClick={() => addBreakSlot(newBreakTime)}
+                className="px-3 py-1 bg-[var(--primary)] text-white text-xs font-black rounded-md hover:bg-[var(--primary-hover)] flex items-center gap-1 cursor-pointer shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Adicionar</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {state.breaks.map((b) => (
+                <div
+                  key={b.id}
+                  className="bg-[var(--bg)] border border-[var(--line)] p-2 rounded-lg flex items-center justify-between"
+                >
+                  <div>
+                    <div className="text-xs font-black text-[var(--ink)]">{b.time}</div>
+                    <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">Sem limite</div>
+                  </div>
+                  <button
+                    onClick={() => deleteBreakSlot(b.id)}
+                    className="p-1 text-red-500 hover:text-red-700 cursor-pointer"
+                    title="Excluir Horário"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Categorias */}
-        <div className="bg-[var(--paper)] border border-[var(--line)] p-4 rounded-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink)] flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-amber-500" />
-              <span>Categorias</span>
-            </h4>
-            <span className="text-[10px] bg-[var(--bg)] px-2 py-0.5 rounded font-mono font-bold text-[var(--muted)]">
-              {state.categories.length}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              placeholder="Nova categoria..."
-              className="flex-1 p-1.5 text-xs bg-[var(--bg)] border border-[var(--line)] rounded-lg"
-            />
-            <button
-              onClick={() => {
-                addCatalogItem('categories', newCategory);
-                setNewCategory('');
-              }}
-              className="px-3 py-1.5 bg-[var(--primary)] text-white text-xs font-bold rounded-lg"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-1">
-            {state.categories.map((cat) => (
-              <span
-                key={cat}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 rounded-md text-xs font-semibold"
-              >
-                <span>{cat}</span>
-                <button onClick={() => removeCatalogItem('categories', cat)} className="hover:text-red-600">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Skills */}
-        <div className="bg-[var(--paper)] border border-[var(--line)] p-4 rounded-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink)] flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-              <span>Skills & Proficiências</span>
-            </h4>
-            <span className="text-[10px] bg-[var(--bg)] px-2 py-0.5 rounded font-mono font-bold text-[var(--muted)]">
-              {state.skills.length}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newSkill}
-              onChange={(e) => setNewSkill(e.target.value)}
-              placeholder="Nova skill..."
-              className="flex-1 p-1.5 text-xs bg-[var(--bg)] border border-[var(--line)] rounded-lg"
-            />
-            <button
-              onClick={() => {
-                addCatalogItem('skills', newSkill);
-                setNewSkill('');
-              }}
-              className="px-3 py-1.5 bg-[var(--primary)] text-white text-xs font-bold rounded-lg"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-1">
-            {state.skills.map((s) => (
-              <span
-                key={s}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 rounded-md text-xs font-semibold"
-              >
-                <span>{s}</span>
-                <button onClick={() => removeCatalogItem('skills', s)} className="hover:text-red-600">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Task Management Linked to Roles & Categories */}
-      <div className="bg-[var(--paper)] border border-[var(--line)] p-5 rounded-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
-          <div>
-            <h4 className="text-sm font-bold text-[var(--ink)]">Relacionamento de Tarefas com Cargo e Categoria</h4>
+        {/* RIGHT COLUMN: Task Management & Relationship to Roles/Categories */}
+        <div className="lg:col-span-7 bg-[var(--paper)] border border-[var(--line)] p-4 rounded-xl space-y-4 shadow-2xs">
+          <div className="border-b border-[var(--line)] pb-2.5">
+            <h4 className="text-sm font-extrabold text-[var(--ink)]">Relacionamento de Tarefas com Cargo e Categoria</h4>
             <p className="text-xs text-[var(--muted)]">
               Relacione quais cargos e categorias realizam cada tarefa para filtragem e dimensionamento automático.
             </p>
           </div>
-        </div>
 
-        {/* Task Creation Form */}
-        <div className="bg-[var(--bg)] p-3.5 rounded-xl border border-[var(--line)] space-y-3">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="text"
-              value={newTaskName}
-              onChange={(e) => setNewTaskName(e.target.value)}
-              placeholder="Nome da nova tarefa (ex: Conferencia ICQA)..."
-              className="flex-1 p-2 bg-[var(--paper)] border border-[var(--line)] rounded-lg text-sm text-[var(--ink)] font-semibold"
-            />
-            <button
-              onClick={handleCreateTask}
-              className="px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] flex items-center justify-center gap-1.5 shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Adicionar Tarefa</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div>
-              <span className="font-bold text-[var(--muted)] block mb-1">Cargos Permitidos/Recomendados:</span>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto bg-[var(--paper)] p-2 rounded-lg border border-[var(--line)]">
-                {state.roles.map((r) => {
-                  const checked = newTaskRoles.includes(r);
-                  return (
-                    <label key={r} className="inline-flex items-center gap-1.5 cursor-pointer bg-[var(--bg)] px-2 py-1 rounded text-[11px] font-medium">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          if (e.target.checked) setNewTaskRoles([...newTaskRoles, r]);
-                          else setNewTaskRoles(newTaskRoles.filter((item) => item !== r));
-                        }}
-                        className="rounded"
-                      />
-                      <span>{r}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <span className="font-bold text-[var(--muted)] block mb-1">Categorias Permitidas/Recomendadas:</span>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto bg-[var(--paper)] p-2 rounded-lg border border-[var(--line)]">
-                {state.categories.map((cat) => {
-                  const checked = newTaskCategories.includes(cat);
-                  return (
-                    <label key={cat} className="inline-flex items-center gap-1.5 cursor-pointer bg-[var(--bg)] px-2 py-1 rounded text-[11px] font-medium">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          if (e.target.checked) setNewTaskCategories([...newTaskCategories, cat]);
-                          else setNewTaskCategories(newTaskCategories.filter((item) => item !== cat));
-                        }}
-                        className="rounded"
-                      />
-                      <span>{cat}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Existing Tasks Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-[var(--line)] text-[var(--muted)] font-bold uppercase">
-                <th className="p-2.5">Nome da Tarefa</th>
-                <th className="p-2.5">Cargos Vinculados</th>
-                <th className="p-2.5">Categorias Vinculadas</th>
-                <th className="p-2.5 text-center">Membros</th>
-                <th className="p-2.5 text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--line)]">
-              {state.tasks.map((task) => (
-                <tr key={task.id} className="hover:bg-[var(--bg)]">
-                  <td className="p-2.5 font-bold text-[var(--ink)]">
-                    <input
-                      type="text"
-                      value={task.name}
-                      onChange={(e) => updateTask(task.id, { name: e.target.value })}
-                      className="bg-transparent border-b border-transparent hover:border-[var(--line)] focus:border-[var(--primary)] px-1 py-0.5 w-full font-semibold"
-                    />
-                  </td>
-                  <td className="p-2.5">
-                    <div className="flex flex-wrap gap-1">
-                      {(task.allowedRoles || []).length > 0 ? (
-                        task.allowedRoles?.map((r) => (
-                          <span key={r} className="px-1.5 py-0.5 bg-[var(--primary-soft)] text-[var(--primary)] rounded text-[10px] font-bold">
-                            {r}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-[var(--muted)] italic">Todos os cargos</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-2.5">
-                    <div className="flex flex-wrap gap-1">
-                      {(task.allowedCategories || []).length > 0 ? (
-                        task.allowedCategories?.map((c) => (
-                          <span key={c} className="px-1.5 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded text-[10px] font-bold">
-                            {c}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-[var(--muted)] italic">Todas as categorias</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-2.5 text-center font-bold text-[var(--ink)]">{task.members.length}</td>
-                  <td className="p-2.5 text-right">
-                    <button
-                      onClick={() => deleteTask(task.id)}
-                      className="p-1 text-red-500 hover:text-red-700 rounded hover:bg-red-50 dark:hover:bg-red-950/40"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Break Slots Configuration */}
-      <div className="bg-[var(--paper)] border border-[var(--line)] p-5 rounded-xl space-y-4">
-        <h4 className="text-sm font-bold text-[var(--ink)] flex items-center gap-2">
-          <Clock className="w-4 h-4 text-[var(--primary)]" />
-          <span>Horários de Intervalo para Refeição</span>
-        </h4>
-
-        <div className="flex flex-wrap items-center gap-3 bg-[var(--bg)] p-3 rounded-xl border border-[var(--line)]">
-          <div>
-            <label className="block text-[11px] font-bold text-[var(--muted)] mb-1">Horário:</label>
-            <input
-              type="time"
-              value={newBreakTime}
-              onChange={(e) => setNewBreakTime(e.target.value)}
-              className="p-1.5 bg-[var(--paper)] border border-[var(--line)] rounded-lg text-sm font-bold"
-            />
-          </div>
-          <button
-            onClick={() => {
-              addBreakSlot(newBreakTime);
-            }}
-            className="mt-5 px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Adicionar Horário</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-          {state.breaks.map((b) => (
-            <div
-              key={b.id}
-              className="bg-[var(--bg)] border border-[var(--line)] p-3 rounded-xl flex items-center justify-between"
-            >
-              <div>
-                <div className="text-sm font-black text-[var(--ink)]">{b.time}</div>
-                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Sem limite</div>
-              </div>
+          {/* Task Creation Form */}
+          <div className="bg-[var(--bg)] p-3 rounded-xl border border-[var(--line)] space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={newTaskName}
+                onChange={(e) => setNewTaskName(e.target.value)}
+                placeholder="Nome da nova tarefa (ex: Conferência ICQA)..."
+                className="flex-1 p-2 bg-[var(--paper)] border border-[var(--line)] rounded-lg text-xs text-[var(--ink)] font-bold"
+              />
               <button
-                onClick={() => deleteBreakSlot(b.id)}
-                className="p-1 text-red-500 hover:text-red-700 cursor-pointer"
-                title="Excluir Horário"
+                onClick={handleCreateTask}
+                className="px-3.5 py-2 bg-[var(--primary)] text-white text-xs font-black rounded-lg hover:bg-[var(--primary-hover)] flex items-center justify-center gap-1 shrink-0 cursor-pointer shadow-2xs"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5" />
+                <span>Adicionar Tarefa</span>
               </button>
             </div>
-          ))}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+              <div>
+                <span className="font-extrabold text-[var(--muted)] block mb-1 text-[11px]">Cargos Permitidos:</span>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto bg-[var(--paper)] p-2 rounded-lg border border-[var(--line)]">
+                  {state.roles.map((r) => {
+                    const checked = newTaskRoles.includes(r);
+                    return (
+                      <label key={r} className="inline-flex items-center gap-1.5 cursor-pointer bg-[var(--bg)] px-2 py-0.5 rounded text-[10px] font-bold">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            if (e.target.checked) setNewTaskRoles([...newTaskRoles, r]);
+                            else setNewTaskRoles(newTaskRoles.filter((item) => item !== r));
+                          }}
+                          className="rounded accent-[var(--primary)] cursor-pointer"
+                        />
+                        <span>{r}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <span className="font-extrabold text-[var(--muted)] block mb-1 text-[11px]">Categorias Permitidas:</span>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto bg-[var(--paper)] p-2 rounded-lg border border-[var(--line)]">
+                  {state.categories.map((cat) => {
+                    const checked = newTaskCategories.includes(cat);
+                    return (
+                      <label key={cat} className="inline-flex items-center gap-1.5 cursor-pointer bg-[var(--bg)] px-2 py-0.5 rounded text-[10px] font-bold">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            if (e.target.checked) setNewTaskCategories([...newTaskCategories, cat]);
+                            else setNewTaskCategories(newTaskCategories.filter((item) => item !== cat));
+                          }}
+                          className="rounded accent-[var(--primary)] cursor-pointer"
+                        />
+                        <span>{cat}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Existing Tasks Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-[var(--line)] text-[var(--muted)] font-black uppercase text-[10px]">
+                  <th className="p-2">Nome da Tarefa</th>
+                  <th className="p-2">Cargos Vinculados</th>
+                  <th className="p-2">Categorias Vinculadas</th>
+                  <th className="p-2 text-center">Membros</th>
+                  <th className="p-2 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--line)]">
+                {state.tasks.map((task) => (
+                  <tr key={task.id} className="hover:bg-[var(--bg)] transition-colors">
+                    <td className="p-2 font-black text-[var(--ink)]">
+                      <input
+                        type="text"
+                        value={task.name}
+                        onChange={(e) => updateTask(task.id, { name: e.target.value })}
+                        className="bg-transparent border-b border-transparent hover:border-[var(--line)] focus:border-[var(--primary)] px-1 py-0.5 w-full font-bold"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <div className="flex flex-wrap gap-1">
+                        {(task.allowedRoles || []).length > 0 ? (
+                          task.allowedRoles?.map((r) => (
+                            <span key={r} className="px-1.5 py-0.5 bg-[var(--primary-soft)] text-[var(--primary)] rounded text-[10px] font-bold">
+                              {r}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[var(--muted)] italic text-[10px]">Todos os cargos</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-2">
+                      <div className="flex flex-wrap gap-1">
+                        {(task.allowedCategories || []).length > 0 ? (
+                          task.allowedCategories?.map((c) => (
+                            <span key={c} className="px-1.5 py-0.5 bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-200 dark:border-amber-800 rounded text-[10px] font-bold">
+                              {c}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[var(--muted)] italic text-[10px]">Todas as categorias</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-2 text-center font-black text-[var(--ink)]">{task.members.length}</td>
+                    <td className="p-2 text-right">
+                      <button
+                        onClick={() => deleteTask(task.id)}
+                        className="p-1 text-red-500 hover:text-red-700 rounded hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer"
+                        title="Excluir tarefa"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -809,7 +829,7 @@ export const TeamView: React.FC = () => {
             <SearchInput
               value={searchTerm}
               onChange={setSearchTerm}
-              placeholder="Pesquisar por nome, login, cargo, time..."
+              placeholder="Pesquisar por nome, LDAP, RE, cargo, time..."
               className="w-full sm:w-64"
             />
 
@@ -832,7 +852,7 @@ export const TeamView: React.FC = () => {
             <thead>
               <tr className="border-b border-[var(--line)] text-[var(--muted)] font-bold uppercase">
                 <th className="p-2">Nome</th>
-                <th className="p-2">Login / Reg.</th>
+                <th className="p-2">LDAP / RE (Matrícula)</th>
                 <th className="p-2">Turno & Time / TL</th>
                 <th className="p-2">Escala</th>
                 <th className="p-2">Cargo</th>
@@ -859,20 +879,20 @@ export const TeamView: React.FC = () => {
                         />
                       </td>
 
-                      {/* Login & Reg */}
+                      {/* LDAP & RE */}
                       <td className="p-2 min-w-[130px]">
                         <div className="space-y-1">
                           <input
                             type="text"
                             value={c.login || ''}
-                            placeholder="Login"
+                            placeholder="LDAP"
                             onChange={(e) => updateCollaborator(c.id, { login: e.target.value })}
                             className="bg-transparent border-b border-transparent hover:border-[var(--line)] focus:border-[var(--primary)] px-1 py-0.5 w-full text-[11px]"
                           />
                           <input
                             type="text"
                             value={c.registration || ''}
-                            placeholder="Matrícula"
+                            placeholder="RE (Matrícula)"
                             onChange={(e) => updateCollaborator(c.id, { registration: e.target.value })}
                             className="bg-transparent border-b border-transparent hover:border-[var(--line)] focus:border-[var(--primary)] px-1 py-0.5 w-full text-[11px] text-[var(--muted)]"
                           />

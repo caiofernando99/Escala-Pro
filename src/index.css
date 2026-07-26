@@ -250,8 +250,12 @@ button, input, select, textarea, a {
   }
 }
 
-/* Custom Print Styles for Clean Share Sheet Export */
+/* Custom Print Styles for Clean Share Sheet & Briefing Slide Export */
 @media print {
+  @page {
+    size: landscape;
+    margin: 4mm;
+  }
   body {
     background: #ffffff !important;
     color: #000000 !important;
@@ -271,6 +275,20 @@ button, input, select, textarea, a {
   }
   .page-break-inside-avoid {
     break-inside: avoid;
+  }
+  #briefing-slide-canvas {
+    width: 100vw !important;
+    height: 96vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    aspect-ratio: 16/9 !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 12px !important;
+    margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-inside: avoid !important;
   }
 }
 

@@ -118,20 +118,20 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg)] text-[var(--ink)] transition-colors duration-200">
+    <div className="flex h-screen overflow-hidden bg-[var(--bg)] text-[var(--ink)] transition-colors duration-200">
       <Sidebar
         currentView={currentView}
         onNavigate={setCurrentView}
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
-      <main className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         <Header
           pageTitle={getPageTitle(currentView)}
           onOpenTutorial={() => setIsTutorialOpen(true)}
           onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
         />
-        <div className="p-3 sm:p-4 md:p-6 flex-1">
+        <div className="p-2.5 sm:p-3.5 md:p-4 flex-1">
           {renderView()}
         </div>
       </main>

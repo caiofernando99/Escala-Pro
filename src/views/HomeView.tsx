@@ -131,46 +131,46 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-3.5 animate-in fade-in duration-200">
       {/* Banner Top */}
-      <div className="bg-gradient-to-r from-[var(--sidebar-bg)] to-[var(--primary)] text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-[var(--sidebar-bg)] to-[var(--primary)] text-white p-4 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-extrabold tracking-tight">
+          <h2 className="text-base sm:text-lg font-extrabold tracking-tight">
             Painel da Operação — {state.teamName || 'Equipe Principal'}
           </h2>
-          <p className="text-sm text-white/90 mt-1 max-w-xl font-medium">
+          <p className="text-xs text-white/90 mt-0.5 max-w-xl font-medium">
             Acompanhe a disponibilidade da equipe, afastamentos programados, dimensionamento e escala em tempo real.
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-black/20 text-white px-4 py-2.5 rounded-xl border border-white/20 shadow-sm shrink-0">
-          <Calendar className="w-4 h-4 text-white/90 shrink-0" />
+        <div className="flex items-center gap-2 bg-black/20 text-white px-3 py-2 rounded-xl border border-white/20 shadow-xs shrink-0">
+          <Calendar className="w-3.5 h-3.5 text-white/90 shrink-0" />
           <input
             type="date"
             value={state.selectedDate}
             onChange={(e) => setDate(e.target.value)}
-            className="bg-transparent text-sm font-bold text-white focus:outline-none cursor-pointer"
+            className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
           />
         </div>
       </div>
 
       {/* SELETOR DE IDENTIFICAÇÃO DA EQUIPE E TURNO */}
-      <div className="bg-[var(--paper)] border-2 border-[var(--primary-border)] p-4 rounded-2xl shadow-xs space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-[var(--primary-soft)] text-[var(--primary)] rounded-xl font-bold shrink-0">
-              <Users className="w-5 h-5" />
+      <div className="bg-[var(--paper)] border border-[var(--primary-border)] p-3 rounded-2xl shadow-2xs space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--line)] pb-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-[var(--primary-soft)] text-[var(--primary)] rounded-lg font-bold shrink-0">
+              <Users className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-extrabold text-[var(--ink)] flex items-center gap-2">
+              <h3 className="text-xs font-extrabold text-[var(--ink)] flex items-center gap-2">
                 <span>Identificação da Equipe e Turno</span>
                 {selectedShift !== 'todos' && (
-                  <span className="px-2 py-0.5 bg-[var(--primary)] text-white rounded text-[10px] uppercase font-black">
+                  <span className="px-1.5 py-0.2 bg-[var(--primary)] text-white rounded text-[9px] uppercase font-black">
                     Turno {selectedShift}
                   </span>
                 )}
               </h3>
-              <p className="text-xs text-[var(--muted)]">
-                Selecione o seu Turno e o seu Time / TL para filtrar instantaneamente os indicadores e a equipe.
+              <p className="text-[11px] text-[var(--muted)]">
+                Selecione o seu Turno e o seu Time / TL para filtrar os indicadores e a equipe.
               </p>
             </div>
           </div>
@@ -181,25 +181,25 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
                 setSelectedShift('todos');
                 setSelectedTL('todos');
               }}
-              className="px-3 py-1.5 bg-amber-500/10 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20 text-xs font-extrabold rounded-lg transition-colors border border-amber-500/30 self-start sm:self-center cursor-pointer shrink-0"
+              className="px-2.5 py-1 bg-amber-500/10 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20 text-[11px] font-extrabold rounded-lg transition-colors border border-amber-500/30 self-start sm:self-center cursor-pointer shrink-0"
             >
-              Limpar Filtros (Ver Toda Operação)
+              Limpar Filtros
             </button>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3 text-xs font-semibold">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
             {/* Seletor de Turno */}
-            <div className="flex items-center gap-2 bg-[var(--bg)] border border-[var(--line)] p-1.5 rounded-xl">
-              <span className="text-[var(--muted)] font-extrabold px-1">Turno:</span>
+            <div className="flex items-center gap-1.5 bg-[var(--bg)] border border-[var(--line)] p-1 rounded-lg">
+              <span className="text-[var(--muted)] font-bold text-[11px] px-1">Turno:</span>
               <select
                 value={selectedShift}
                 onChange={(e) => {
                   setSelectedShift(e.target.value);
                   setSelectedTL('todos');
                 }}
-                className="bg-[var(--paper)] border border-[var(--line)] rounded-lg px-2.5 py-1 text-[var(--ink)] font-black cursor-pointer focus:ring-1 focus:ring-[var(--primary)]"
+                className="bg-[var(--paper)] border border-[var(--line)] rounded-md px-2 py-0.5 text-[var(--ink)] font-black text-xs cursor-pointer focus:ring-1 focus:ring-[var(--primary)]"
               >
                 <option value="todos">Todos os Turnos</option>
                 {availableShifts.map((s) => (
@@ -211,15 +211,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
             </div>
 
             {/* Seletor de Time / TL */}
-            <div className="flex items-center gap-2 bg-[var(--bg)] border border-[var(--line)] p-1.5 rounded-xl">
-              <span className="text-[var(--muted)] font-extrabold px-1">Time / TL:</span>
+            <div className="flex items-center gap-1.5 bg-[var(--bg)] border border-[var(--line)] p-1 rounded-lg">
+              <span className="text-[var(--muted)] font-bold text-[11px] px-1">Time / TL:</span>
               <select
                 value={selectedTL}
                 onChange={(e) => setSelectedTL(e.target.value)}
-                className="bg-[var(--paper)] border border-[var(--line)] rounded-lg px-2.5 py-1 text-[var(--ink)] font-black cursor-pointer focus:ring-1 focus:ring-[var(--primary)]"
+                className="bg-[var(--paper)] border border-[var(--line)] rounded-md px-2 py-0.5 text-[var(--ink)] font-black text-xs cursor-pointer focus:ring-1 focus:ring-[var(--primary)]"
               >
                 <option value="todos">
-                  {selectedShift !== 'todos' ? `Todos os Times do Turno ${selectedShift}` : 'Todos os Times'}
+                  {selectedShift !== 'todos' ? `Todos do Turno ${selectedShift}` : 'Todos os Times'}
                 </option>
                 {availableTLsForShift.map((tl) => (
                   <option key={tl} value={tl}>
@@ -231,92 +231,91 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
           </div>
 
           {/* Live badge summary */}
-          <div className="flex items-center gap-2 text-xs font-bold text-[var(--primary)] bg-[var(--primary-soft)] px-3 py-1.5 rounded-xl border border-[var(--primary-border)] shrink-0">
-            <SlidersHorizontal className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--primary)] bg-[var(--primary-soft)] px-2.5 py-1 rounded-lg border border-[var(--primary-border)] shrink-0">
+            <SlidersHorizontal className="w-3 h-3" />
             <span>
-              Mostrando {filteredCollaborators.length} de {state.collaborators.length} colaboradores
+              Mostrando {filteredCollaborators.length} de {state.collaborators.length}
             </span>
           </div>
         </div>
       </div>
 
       {/* Metrics Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div className="bg-[var(--paper)] border-2 border-emerald-300 dark:border-emerald-800 p-4 rounded-xl shadow-xs">
-          <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-300 font-extrabold mb-1">
-            <span className="text-xs uppercase tracking-wider">Presentes</span>
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        <div className="bg-[var(--paper)] border border-emerald-300 dark:border-emerald-800 p-3 rounded-xl shadow-2xs">
+          <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-300 font-extrabold mb-0.5">
+            <span className="text-[10px] uppercase tracking-wider">Presentes</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="text-3xl font-black text-[var(--ink)]">{presentCount}</div>
-          <p className="text-xs text-[var(--muted)] font-semibold mt-1">Colaboradores ativos hoje</p>
+          <div className="text-2xl font-black text-[var(--ink)]">{presentCount}</div>
+          <p className="text-[10px] text-[var(--muted)] font-medium mt-0.5">Ativos hoje</p>
         </div>
 
-        <div className="bg-[var(--paper)] border-2 border-purple-300 dark:border-purple-800 p-4 rounded-xl shadow-xs">
-          <div className="flex items-center justify-between text-purple-800 dark:text-purple-300 font-extrabold mb-1">
-            <span className="text-xs uppercase tracking-wider">Férias</span>
-            <Palmtree className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+        <div className="bg-[var(--paper)] border border-purple-300 dark:border-purple-800 p-3 rounded-xl shadow-2xs">
+          <div className="flex items-center justify-between text-purple-800 dark:text-purple-300 font-extrabold mb-0.5">
+            <span className="text-[10px] uppercase tracking-wider">Férias</span>
+            <Palmtree className="w-4 h-4 text-purple-600 dark:text-purple-400" />
           </div>
-          <div className="text-3xl font-black text-[var(--ink)]">{vacationCount}</div>
-          <p className="text-xs text-[var(--muted)] font-semibold mt-1">Afastamento programado</p>
+          <div className="text-2xl font-black text-[var(--ink)]">{vacationCount}</div>
+          <p className="text-[10px] text-[var(--muted)] font-medium mt-0.5">Programadas</p>
         </div>
 
-        <div className="bg-[var(--paper)] border-2 border-amber-300 dark:border-amber-800 p-4 rounded-xl shadow-xs">
-          <div className="flex items-center justify-between text-amber-800 dark:text-amber-300 font-extrabold mb-1">
-            <span className="text-xs uppercase tracking-wider">Licenças / Trein.</span>
+        <div className="bg-[var(--paper)] border border-amber-300 dark:border-amber-800 p-3 rounded-xl shadow-2xs">
+          <div className="flex items-center justify-between text-amber-800 dark:text-amber-300 font-extrabold mb-0.5">
+            <span className="text-[10px] uppercase tracking-wider">Licen. / Trein.</span>
             <div className="flex gap-1 text-amber-600 dark:text-amber-400">
-              <Stethoscope className="w-4 h-4" />
-              <BookOpen className="w-4 h-4" />
+              <Stethoscope className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="text-3xl font-black text-[var(--ink)]">{leaveCount + trainingCount}</div>
-          <p className="text-xs text-[var(--muted)] font-semibold mt-1">Afastamento médico / treinamentos</p>
+          <div className="text-2xl font-black text-[var(--ink)]">{leaveCount + trainingCount}</div>
+          <p className="text-[10px] text-[var(--muted)] font-medium mt-0.5">Médico / Treino</p>
         </div>
 
-        <div className="bg-[var(--paper)] border-2 border-red-300 dark:border-red-800 p-4 rounded-xl shadow-xs">
-          <div className="flex items-center justify-between text-red-800 dark:text-red-300 font-extrabold mb-1">
-            <span className="text-xs uppercase tracking-wider">Ausentes</span>
-            <UserX className="w-5 h-5 text-red-600 dark:text-red-400" />
+        <div className="bg-[var(--paper)] border border-red-300 dark:border-red-800 p-3 rounded-xl shadow-2xs">
+          <div className="flex items-center justify-between text-red-800 dark:text-red-300 font-extrabold mb-0.5">
+            <span className="text-[10px] uppercase tracking-wider">Ausentes</span>
+            <UserX className="w-4 h-4 text-red-600 dark:text-red-400" />
           </div>
-          <div className="text-3xl font-black text-[var(--ink)]">{absentCount}</div>
-          <p className="text-xs text-[var(--muted)] font-semibold mt-1">Faltas não justificadas</p>
+          <div className="text-2xl font-black text-[var(--ink)]">{absentCount}</div>
+          <p className="text-[10px] text-[var(--muted)] font-medium mt-0.5">Faltas no dia</p>
         </div>
 
-        <div className="bg-[var(--paper)] border-2 border-[var(--primary-border)] p-4 rounded-xl shadow-xs col-span-2 sm:col-span-1">
-          <div className="flex items-center justify-between text-[var(--primary)] font-extrabold mb-1">
-            <span className="text-xs uppercase tracking-wider">Dimensionados</span>
-            <Shuffle className="w-5 h-5" />
+        <div className="bg-[var(--paper)] border border-[var(--primary-border)] p-3 rounded-xl shadow-2xs col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between text-[var(--primary)] font-extrabold mb-0.5">
+            <span className="text-[10px] uppercase tracking-wider">Dimensionados</span>
+            <Shuffle className="w-4 h-4" />
           </div>
-          <div className="text-3xl font-black text-[var(--ink)]">
+          <div className="text-2xl font-black text-[var(--ink)]">
             {assignedCount} / {presentCount}
           </div>
-          <p className="text-xs text-[var(--muted)] font-semibold mt-1">Com tarefa atribuída</p>
+          <p className="text-[10px] text-[var(--muted)] font-medium mt-0.5">Com tarefa</p>
         </div>
       </div>
 
       {/* Quick Actions Grid */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold text-[var(--ink)]">Fluxo de Trabalho Diário</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="space-y-2.5">
+        <h3 className="text-sm font-extrabold text-[var(--ink)]">Fluxo de Trabalho Diário</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
           {steps.map((item) => {
             const Icon = item.icon;
             return (
               <div
                 key={item.step}
-                className="bg-[var(--paper)] border border-[var(--line)] p-5 rounded-xl shadow-xs hover:border-[var(--primary)] transition-all flex flex-col justify-between group"
+                className="bg-[var(--paper)] border border-[var(--line)] p-3 rounded-xl shadow-2xs hover:border-[var(--primary)] transition-all flex flex-col justify-between group"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xl font-extrabold text-[var(--primary)] bg-[var(--primary-soft)] px-2.5 py-1 rounded-lg">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-black text-[var(--primary)] bg-[var(--primary-soft)] px-2 py-0.5 rounded-md">
                       {item.step}
                     </span>
-                    <Icon className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors" />
+                    <Icon className="w-4 h-4 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors" />
                   </div>
-                  <h4 className="font-bold text-base text-[var(--ink)] mb-1">{item.title}</h4>
-                  <p className="text-xs text-[var(--muted)] leading-relaxed mb-4">{item.desc}</p>
+                  <h4 className="font-extrabold text-xs text-[var(--ink)] mb-0.5 truncate">{item.title}</h4>
+                  <p className="text-[10px] text-[var(--muted)] leading-tight line-clamp-2 mb-2">{item.desc}</p>
                 </div>
                 <button
                   onClick={() => onNavigate(item.view)}
-                  className="w-full py-2 px-3 bg-[var(--bg)] hover:bg-[var(--primary)] hover:text-white border border-[var(--line)] text-xs font-bold rounded-lg transition-colors text-[var(--ink)] flex items-center justify-center gap-2"
+                  className="w-full py-1.5 px-2 bg-[var(--bg)] hover:bg-[var(--primary)] hover:text-white border border-[var(--line)] text-[11px] font-bold rounded-lg transition-colors text-[var(--ink)] flex items-center justify-center gap-1 cursor-pointer"
                 >
                   <span>{item.btnText}</span>
                 </button>
