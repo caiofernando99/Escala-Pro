@@ -122,3 +122,58 @@ export function matchesSearch(text: string | undefined | null, search: string): 
   if (!text) return false;
   return escapeSearchTerm(text).includes(escapeSearchTerm(search));
 }
+
+/**
+ * Serializes daily operational state into a compact URL-safe Base64 string
+ */
+export function encodeSharedState(state: AppState): string {
+  try {
+    const snapshot = {
+      date: state.selectedDate,
+      teamName: state.teamName,
+      sector: state.sector,
+      manager: state.manager,
+      teamShift: state.teamShift,
+      defaultTeamLeader: state.defaultTeamLeader,
+      teamLeaders: state.teamLeaders,
+      collaborators: state.collaborators,
+      tasks: state.tasks,
+      breaks: state.breaks,
+      intervals: state.intervals[state.selectedDate] || {},
+      calendar: state.calendar,
+      attendance: state.attendance[state.selectedDate] || {},
+    };
+    const jsonStr = JSON.stringify(snapshot);
+    const utf8Bytes = new TextEncoder().encode(jsonStr);
+    let binary = '';
+    for (let i = 0; i < utf8Bytes.length; i++) {
+      binary += String.fromCharCode(utf8Bytes[i]);
+    }
+    const base64 = btoa(binary);
+    return encodeURIComponent(base64);
+  } catch (err) {
+    console.error('Failed to encode shared state:', err);
+    return '';
+  }
+}
+
+/**
+ * Decodes compressed Base64 string from URL parameter back into state snapshot
+ */
+export function decodeSharedState(encoded: string): any | null {
+  if (!encoded) return null;
+  try {
+    const base64 = decodeURIComponent(encoded);
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const jsonStr = new TextDecoder().decode(bytes);
+    return JSON.parse(jsonStr);
+  } catch (err) {
+    console.error('Failed to decode shared state:', err);
+    return null;
+  }
+}
+

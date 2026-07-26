@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { SearchInput } from '../components/SearchInput';
 import {
@@ -10,6 +10,8 @@ import {
   Sun,
   RotateCcw,
   AlertCircle,
+  Users,
+  Tag,
 } from 'lucide-react';
 import { getCollaboratorStatus, matchesSearch, formatDateBR } from '../utils/helpers';
 
@@ -17,14 +19,24 @@ export const PresenceView: React.FC = () => {
   const { state, toggleAttendance, resetAttendance, setAbsenceReason } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTLFilter, setSelectedTLFilter] = useState<string>('todos');
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('todos');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('todos');
+  const [groupBy, setGroupBy] = useState<'geral' | 'cargo' | 'categoria'>('geral');
 
   const activeDate = state.selectedDate;
+
+  // Unique roles and categories for filter dropdowns
+  const allRoles = Array.from(new Set(state.collaborators.map((c) => c.role).filter(Boolean)));
+  const allCategories = Array.from(new Set(state.collaborators.map((c) => c.category).filter(Boolean)));
 
   // Classify all collaborators for current date
   const classified = state.collaborators
     .filter((col) => {
       const colTL = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
-      return selectedTLFilter === 'todos' || colTL === selectedTLFilter;
+      const matchesTL = selectedTLFilter === 'todos' || colTL === selectedTLFilter;
+      const matchesRole = selectedRoleFilter === 'todos' || col.role === selectedRoleFilter;
+      const matchesCategory = selectedCategoryFilter === 'todos' || col.category === selectedCategoryFilter;
+      return matchesTL && matchesRole && matchesCategory;
     })
     .map((col) => {
       const statusInfo = getCollaboratorStatus(col, activeDate, state);
@@ -49,27 +61,67 @@ export const PresenceView: React.FC = () => {
   );
   const filteredAbsent = absentList.filter((c) => matchesSearch(c.collaborator.name, searchTerm));
 
+  // Grouping helper for Por Cargo and Por Categoria
+  const groupedByRole = useMemo(() => {
+    const map: Record<string, typeof filteredPresent> = {};
+    filteredPresent.forEach((item) => {
+      const key = item.collaborator.role || 'Sem Cargo Definido';
+      if (!map[key]) map[key] = [];
+      map[key].push(item);
+    });
+    return map;
+  }, [filteredPresent]);
+
+  const groupedByCategory = useMemo(() => {
+    const map: Record<string, typeof filteredPresent> = {};
+    filteredPresent.forEach((item) => {
+      const key = item.collaborator.category || 'Sem Categoria Definida';
+      if (!map[key]) map[key] = [];
+      map[key].push(item);
+    });
+    return map;
+  }, [filteredPresent]);
+
   const dayReport = state.dailyReports[activeDate] || {};
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[var(--paper)] p-4 rounded-xl border border-[var(--line)]">
-        <div>
-          <h3 className="text-lg font-bold text-[var(--ink)]">Presença de Hoje — {formatDateBR(activeDate)}</h3>
-          <p className="text-xs text-[var(--muted)]">
-            Férias, licenças e treinamentos são sinalizados e separados automaticamente das faltas não justificadas.
-          </p>
+      <div className="flex flex-col gap-4 bg-[var(--paper)] p-4 md:p-5 rounded-2xl border border-[var(--line)] shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-[var(--ink)]">Presença de Hoje — {formatDateBR(activeDate)}</h3>
+            <p className="text-xs text-[var(--muted)]">
+              Gerencie a presença da equipe por Cargo, Categoria ou Time Leader em tempo real.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchInput
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Pesquisar colaborador..."
+              className="w-full sm:w-60"
+            />
+            <button
+              onClick={resetAttendance}
+              className="px-3 py-2 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-[var(--bg)] flex items-center gap-1.5 shrink-0 text-[var(--ink)] cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restaurar Escala</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Team Leader Filter Pill */}
-          <div className="flex items-center gap-1 bg-[var(--bg)] border border-[var(--line)] px-2.5 py-1.5 rounded-lg text-xs font-semibold">
-            <span className="text-[var(--muted)] font-bold">Time / TL:</span>
+        {/* Filters Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-[var(--line)] pt-3">
+          {/* TL Filter */}
+          <div className="flex items-center gap-2 bg-[var(--bg)] border border-[var(--line)] px-3 py-1.5 rounded-xl text-xs font-semibold">
+            <span className="text-[var(--muted)] font-bold shrink-0">Time/TL:</span>
             <select
               value={selectedTLFilter}
               onChange={(e) => setSelectedTLFilter(e.target.value)}
-              className="bg-transparent text-[var(--ink)] font-bold focus:outline-none cursor-pointer py-0.5"
+              className="w-full bg-transparent text-[var(--ink)] font-bold focus:outline-none cursor-pointer py-0.5 truncate"
             >
               <option value="todos">Todos os Times</option>
               {(state.teamLeaders || []).map((tl) => (
@@ -80,19 +132,39 @@ export const PresenceView: React.FC = () => {
             </select>
           </div>
 
-          <SearchInput
-            value={searchTerm}
-            onChange={setSearchTerm}
-            placeholder="Pesquisar presente ou ausente..."
-            className="w-full sm:w-64"
-          />
-          <button
-            onClick={resetAttendance}
-            className="px-3 py-2 border border-[var(--line)] text-xs font-semibold rounded-lg hover:bg-[var(--bg)] flex items-center gap-1.5 shrink-0 text-[var(--ink)]"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restaurar Escala</span>
-          </button>
+          {/* Role Filter */}
+          <div className="flex items-center gap-2 bg-[var(--bg)] border border-[var(--line)] px-3 py-1.5 rounded-xl text-xs font-semibold">
+            <span className="text-[var(--muted)] font-bold shrink-0">Cargo:</span>
+            <select
+              value={selectedRoleFilter}
+              onChange={(e) => setSelectedRoleFilter(e.target.value)}
+              className="w-full bg-transparent text-[var(--ink)] font-bold focus:outline-none cursor-pointer py-0.5 truncate"
+            >
+              <option value="todos">Todos os Cargos ({allRoles.length})</option>
+              {allRoles.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Category Filter */}
+          <div className="flex items-center gap-2 bg-[var(--bg)] border border-[var(--line)] px-3 py-1.5 rounded-xl text-xs font-semibold">
+            <span className="text-[var(--muted)] font-bold shrink-0">Categoria:</span>
+            <select
+              value={selectedCategoryFilter}
+              onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+              className="w-full bg-transparent text-[var(--ink)] font-bold focus:outline-none cursor-pointer py-0.5 truncate"
+            >
+              <option value="todos">Todas as Categorias ({allCategories.length})</option>
+              {allCategories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -149,48 +221,194 @@ export const PresenceView: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Presentes List (2 cols) */}
-        <div className="lg:col-span-2 bg-[var(--paper)] border border-[var(--line)] p-5 rounded-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-            <h4 className="text-sm font-bold text-[var(--ink)] flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Colaboradores Presentes ({filteredPresent.length})</span>
-            </h4>
-            <span className="text-xs text-[var(--muted)]">Desmarque apenas se a pessoa faltou</span>
+        <div className="lg:col-span-2 bg-[var(--paper)] border border-[var(--line)] p-5 rounded-2xl space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[var(--line)] pb-3 gap-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <h4 className="text-sm font-extrabold text-[var(--ink)]">
+                Colaboradores Presentes ({filteredPresent.length})
+              </h4>
+            </div>
+
+            {/* Grouping Mode Tabs */}
+            <div className="flex items-center bg-[var(--bg)] border border-[var(--line)] p-1 rounded-xl text-xs font-bold gap-1 self-start sm:self-auto">
+              <button
+                onClick={() => setGroupBy('geral')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  groupBy === 'geral'
+                    ? 'bg-[var(--paper)] text-[var(--primary)] shadow-2xs'
+                    : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                }`}
+              >
+                Lista Geral
+              </button>
+              <button
+                onClick={() => setGroupBy('cargo')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  groupBy === 'cargo'
+                    ? 'bg-[var(--paper)] text-[var(--primary)] shadow-2xs'
+                    : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                }`}
+              >
+                Por Cargo
+              </button>
+              <button
+                onClick={() => setGroupBy('categoria')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  groupBy === 'categoria'
+                    ? 'bg-[var(--paper)] text-[var(--primary)] shadow-2xs'
+                    : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                }`}
+              >
+                Por Categoria
+              </button>
+            </div>
           </div>
 
-          <div className="divide-y divide-[var(--line)] max-h-[500px] overflow-y-auto">
-            {filteredPresent.length > 0 ? (
-              filteredPresent.map(({ collaborator }) => (
-                <div key={collaborator.id} className="py-2.5 flex items-center justify-between gap-3 hover:bg-[var(--bg)] px-2 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={true}
-                      onChange={(e) => toggleAttendance(collaborator.id, e.target.checked)}
-                      className="w-4 h-4 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-[var(--ink)]">{collaborator.name}</div>
-                      <div className="text-[10px] text-[var(--muted)] flex items-center gap-2">
-                        <span>{collaborator.role}</span>
-                        <span>•</span>
-                        <span>{collaborator.category}</span>
-                        <span>•</span>
-                        <span className="font-semibold">Turma {collaborator.scale}</span>
+          {/* RENDER BY SELECTED GROUPING MODE */}
+          {groupBy === 'geral' && (
+            <div className="divide-y divide-[var(--line)] max-h-[520px] overflow-y-auto">
+              {filteredPresent.length > 0 ? (
+                filteredPresent.map(({ collaborator }) => (
+                  <div key={collaborator.id} className="py-2.5 flex items-center justify-between gap-3 hover:bg-[var(--bg)] px-2 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={true}
+                        onChange={(e) => toggleAttendance(collaborator.id, e.target.checked)}
+                        className="w-4 h-4 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer"
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-[var(--ink)]">{collaborator.name}</div>
+                        <div className="text-[10px] text-[var(--muted)] flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-blue-600 dark:text-blue-400">{collaborator.role}</span>
+                          <span>•</span>
+                          <span className="font-semibold text-purple-600 dark:text-purple-400">{collaborator.category}</span>
+                          <span>•</span>
+                          <span className="font-semibold">Turma {collaborator.scale}</span>
+                        </div>
                       </div>
                     </div>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full shrink-0">
+                      Confirmado
+                    </span>
                   </div>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full">
-                    Confirmado
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="p-8 text-center text-xs text-[var(--muted)]">
-                Nenhum colaborador presente para os filtros aplicados.
-              </p>
-            )}
-          </div>
+                ))
+              ) : (
+                <p className="p-8 text-center text-xs text-[var(--muted)]">
+                  Nenhum colaborador presente para os filtros aplicados.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* POR CARGO MODE */}
+          {groupBy === 'cargo' && (
+            <div className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
+              {Object.keys(groupedByRole).length > 0 ? (
+                Object.entries(groupedByRole).map(([roleName, rawList]) => {
+                  const list = rawList as typeof filteredPresent;
+                  return (
+                    <div key={roleName} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-[var(--primary)]" />
+                          <h5 className="text-xs font-black text-[var(--ink)] uppercase tracking-wider">{roleName}</h5>
+                        </div>
+                        <span className="text-[10px] font-black bg-[var(--primary-soft)] text-[var(--primary)] px-2 py-0.5 rounded-full border border-[var(--primary-border)]">
+                          {list.length} Presentes
+                        </span>
+                      </div>
+
+                      <div className="divide-y divide-[var(--line)]">
+                        {list.map(({ collaborator }) => (
+                          <div key={collaborator.id} className="py-2 flex items-center justify-between gap-3 px-1">
+                            <div className="flex items-center gap-2.5">
+                              <input
+                                type="checkbox"
+                                checked={true}
+                                onChange={(e) => toggleAttendance(collaborator.id, e.target.checked)}
+                                className="w-4 h-4 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer"
+                              />
+                              <div>
+                                <div className="text-xs font-bold text-[var(--ink)]">{collaborator.name}</div>
+                                <div className="text-[10px] text-[var(--muted)] flex items-center gap-1.5">
+                                  <span className="text-purple-600 dark:text-purple-400 font-semibold">{collaborator.category}</span>
+                                  <span>•</span>
+                                  <span>Turma {collaborator.scale}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full shrink-0">
+                              Presente
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="p-8 text-center text-xs text-[var(--muted)]">
+                  Nenhum colaborador presente para os filtros selecionados.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* POR CATEGORIA MODE */}
+          {groupBy === 'categoria' && (
+            <div className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
+              {Object.keys(groupedByCategory).length > 0 ? (
+                Object.entries(groupedByCategory).map(([categoryName, rawList]) => {
+                  const list = rawList as typeof filteredPresent;
+                  return (
+                    <div key={categoryName} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-4 h-4 text-purple-600" />
+                          <h5 className="text-xs font-black text-[var(--ink)] uppercase tracking-wider">{categoryName}</h5>
+                        </div>
+                        <span className="text-[10px] font-black bg-purple-100 text-purple-900 dark:bg-purple-950 dark:text-purple-200 px-2 py-0.5 rounded-full border border-purple-300">
+                          {list.length} Presentes
+                        </span>
+                      </div>
+
+                      <div className="divide-y divide-[var(--line)]">
+                        {list.map(({ collaborator }) => (
+                          <div key={collaborator.id} className="py-2 flex items-center justify-between gap-3 px-1">
+                            <div className="flex items-center gap-2.5">
+                              <input
+                                type="checkbox"
+                                checked={true}
+                                onChange={(e) => toggleAttendance(collaborator.id, e.target.checked)}
+                                className="w-4 h-4 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer"
+                              />
+                              <div>
+                                <div className="text-xs font-bold text-[var(--ink)]">{collaborator.name}</div>
+                                <div className="text-[10px] text-[var(--muted)] flex items-center gap-1.5">
+                                  <span className="text-blue-600 dark:text-blue-400 font-semibold">{collaborator.role}</span>
+                                  <span>•</span>
+                                  <span>Turma {collaborator.scale}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full shrink-0">
+                              Presente
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="p-8 text-center text-xs text-[var(--muted)]">
+                  Nenhum colaborador presente para os filtros selecionados.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right Side: Programmed Absences & Faltas */}

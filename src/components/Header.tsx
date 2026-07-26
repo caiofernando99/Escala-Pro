@@ -1,14 +1,15 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { formatDateLongBR, formatDateBR, isScaleOff } from '../utils/helpers';
-import { Calendar as CalendarIcon, CheckCircle2, UserX, Sun, Stethoscope, Palmtree, BookOpen, ShieldCheck } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle2, UserX, Sun, Stethoscope, Palmtree, BookOpen, ShieldCheck, Menu } from 'lucide-react';
 
 interface HeaderProps {
   pageTitle: string;
   onOpenTutorial?: () => void;
+  onToggleMobileMenu?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ pageTitle, onOpenTutorial }) => {
+export const Header: React.FC<HeaderProps> = ({ pageTitle, onOpenTutorial, onToggleMobileMenu }) => {
   const { state, setDate, noticeMessage, noticeActionLabel, onNoticeAction } = useApp();
 
   const activeDate = state.selectedDate;
@@ -47,40 +48,54 @@ export const Header: React.FC<HeaderProps> = ({ pageTitle, onOpenTutorial }) => 
   });
 
   return (
-    <header className="no-print border-b border-[var(--line)] bg-[var(--paper)] px-6 py-4 transition-colors duration-200">
+    <header className="no-print border-b border-[var(--line)] bg-[var(--paper)] px-3 py-3 sm:px-6 sm:py-4 transition-colors duration-200">
       {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">
-            <span className="font-extrabold text-[var(--ink)]">{state.teamName || 'Gestão sem Equipe'}</span>
-            {state.sector && (
-              <>
-                <span>•</span>
-                <span>{state.sector}</span>
-              </>
-            )}
-            {state.teamShift && (
-              <span className="bg-[var(--primary-soft)] text-[var(--primary)] px-2 py-0.5 rounded-full text-[10px] font-black border border-[var(--primary-border)]">
-                Turno {state.teamShift}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-start sm:items-center gap-3">
+          {onToggleMobileMenu && (
+            <button
+              type="button"
+              onClick={onToggleMobileMenu}
+              className="md:hidden mt-0.5 p-2 bg-[var(--bg)] border border-[var(--line)] hover:bg-[var(--line)] text-[var(--ink)] rounded-xl flex items-center justify-center shrink-0 cursor-pointer transition-colors shadow-2xs"
+              aria-label="Abrir Menu de Navegação"
+              title="Abrir Menu"
+            >
+              <Menu className="w-5 h-5 text-[var(--ink)]" />
+            </button>
+          )}
+
+          <div>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">
+              <span className="font-extrabold text-[var(--ink)]">{state.teamName || 'Gestão sem Equipe'}</span>
+              {state.sector && (
+                <>
+                  <span>•</span>
+                  <span>{state.sector}</span>
+                </>
+              )}
+              {state.teamShift && (
+                <span className="bg-[var(--primary-soft)] text-[var(--primary)] px-2 py-0.5 rounded-full text-[10px] font-black border border-[var(--primary-border)]">
+                  Turno {state.teamShift}
+                </span>
+              )}
+              {state.manager && (
+                <span className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-300 dark:border-slate-700">
+                  Gestor: {state.manager}
+                </span>
+              )}
+              {state.defaultTeamLeader && (
+                <span className="bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-black border border-emerald-300 dark:border-emerald-800">
+                  {state.defaultTeamLeader}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3 mt-0.5">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--ink)] tracking-tight truncate">{pageTitle}</h2>
+              <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary-border)] rounded-full text-[10px] sm:text-xs font-black shrink-0">
+                <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                <span>EscalaPro</span>
               </span>
-            )}
-            {state.manager && (
-              <span className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-300 dark:border-slate-700">
-                Gestor: {state.manager}
-              </span>
-            )}
-            {state.defaultTeamLeader && (
-              <span className="bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-black border border-emerald-300 dark:border-emerald-800">
-                {state.defaultTeamLeader}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-0.5">
-            <h2 className="text-2xl font-extrabold text-[var(--ink)] tracking-tight">{pageTitle}</h2>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary-border)] rounded-full text-xs font-black">
-              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-              <span>EscalaPro</span>
-            </span>
+            </div>
           </div>
         </div>
 

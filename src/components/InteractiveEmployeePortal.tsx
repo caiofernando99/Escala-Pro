@@ -25,14 +25,36 @@ import {
   Sparkles,
   Info,
 } from 'lucide-react';
-import { matchesSearch, isScaleOff, formatDateBR, formatDateLongBR } from '../utils/helpers';
+import { matchesSearch, isScaleOff, formatDateBR, formatDateLongBR, encodeSharedState, decodeSharedState } from '../utils/helpers';
 
 interface InteractiveEmployeePortalProps {
   onClose?: () => void;
+  isStandalonePortal?: boolean;
 }
 
-export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps> = ({ onClose }) => {
-  const { state, showNotice } = useApp();
+export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps> = ({ onClose, isStandalonePortal = false }) => {
+  const { state: defaultState, showNotice } = useApp();
+
+  // Try to parse URL payload data if standalone link or present in URL
+  const [sharedState] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const dataParam = params.get('data');
+      if (dataParam) {
+        const decoded = decodeSharedState(dataParam);
+        if (decoded) {
+          return decoded;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    return null;
+  });
+
+  // Effective state to render
+  const state = sharedState ? { ...defaultState, ...sharedState } : defaultState;
+
   const [searchName, setSearchName] = useState('');
   const [selectedRole, setSelectedRole] = useState('ALL');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -41,43 +63,43 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
   const [portalViewMode, setPortalViewMode] = useState<'tasks' | 'collaborators'>('tasks');
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const activeDate = state.selectedDate;
-  const dayIntervals = state.intervals[activeDate] || {};
+  const activeDate = state.selectedDate || defaultState.selectedDate;
+  const dayIntervals = (state.intervals && state.intervals[activeDate]) || state.intervals || {};
 
   // All unique roles and categories
-  const allRoles = Array.from(new Set(state.collaborators.map((c) => c.role).filter(Boolean)));
-  const allCategories = Array.from(new Set(state.collaborators.map((c) => c.category).filter(Boolean)));
+  const allRoles = Array.from(new Set((state.collaborators || []).map((c: any) => c.role).filter(Boolean)));
+  const allCategories = Array.from(new Set((state.collaborators || []).map((c: any) => c.category).filter(Boolean)));
 
   // Find break slot
   const getBreakSlot = (collabId: string) => {
-    const slot = state.breaks.find((b) => (dayIntervals[b.id] || []).includes(collabId));
+    const slot = (state.breaks || []).find((b: any) => (dayIntervals[b.id] || []).includes(collabId));
     return slot ? slot.time : 'Não definido';
   };
 
   // Find task assigned
   const getTaskAssigned = (collabId: string) => {
-    const task = state.tasks.find((t) => t.members.includes(collabId));
+    const task = (state.tasks || []).find((t: any) => (t.members || []).includes(collabId));
     return task ? task.name : 'Apoio Geral / Não Alocado';
   };
 
   // Status helper for person on active date
   const getPersonStatus = (collabId: string) => {
-    const col = state.collaborators.find((c) => c.id === collabId);
+    const col = (state.collaborators || []).find((c: any) => c.id === collabId);
     if (!col) return { status: 'desconhecido', label: 'Indefinido', color: 'bg-slate-100 text-slate-800' };
 
-    const activeAbsence = (col.absences || []).find((a) => activeDate >= a.startDate && activeDate <= a.endDate);
+    const activeAbsence = (col.absences || []).find((a: any) => activeDate >= a.startDate && activeDate <= a.endDate);
     if (activeAbsence) {
       if (activeAbsence.type === 'ferias') return { status: 'ferias', label: 'Em Férias', color: 'bg-purple-100 text-purple-900 border-purple-300' };
       if (activeAbsence.type === 'licenca') return { status: 'licenca', label: 'Em Licença', color: 'bg-amber-100 text-amber-900 border-amber-300' };
       if (activeAbsence.type === 'treinamento') return { status: 'treinamento', label: 'Em Treinamento', color: 'bg-blue-100 text-blue-900 border-blue-300' };
     }
 
-    const offScale = isScaleOff(state.calendar, activeDate, col.scale);
+    const offScale = isScaleOff(state.calendar || {}, activeDate, col.scale);
     if (offScale) {
       return { status: 'folga', label: 'Folga 6x2', color: 'bg-slate-200 text-slate-900 border-slate-400' };
     }
 
-    const manual = state.attendance[activeDate]?.[collabId];
+    const manual = state.attendance?.[activeDate]?.[collabId];
     if (manual === false) {
       return { status: 'ausente', label: 'Ausente (Falta)', color: 'bg-red-100 text-red-900 border-red-300' };
     }
@@ -88,7 +110,7 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
   // Filtered collaborators list
   const isSearching = searchName.trim().length > 0;
 
-  const filteredCollaborators = state.collaborators.filter((col) => {
+  const filteredCollaborators = (state.collaborators || []).filter((col: any) => {
     const colTL = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
     const matchesQuery = matchesSearch(col.name, searchName) || matchesSearch(col.role, searchName) || matchesSearch(colTL, searchName);
     const matchesRole = selectedRole === 'ALL' || col.role === selectedRole;
@@ -110,13 +132,14 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
   });
 
   // Selected collaborator details
-  const activeCollab = state.collaborators.find((c) => c.id === selectedCollabId) || null;
+  const activeCollab = (state.collaborators || []).find((c: any) => c.id === selectedCollabId) || null;
 
   const handleCopyPublicLink = () => {
-    const publicUrl = `${window.location.origin}${window.location.pathname}?view=employee_portal&date=${activeDate}`;
+    const dataHash = encodeSharedState(state as any);
+    const publicUrl = `${window.location.origin}${window.location.pathname}?view=employee_portal&date=${activeDate}&data=${dataHash}`;
     navigator.clipboard.writeText(publicUrl);
     setCopiedLink(true);
-    showNotice('Link público interativo copiado com sucesso!');
+    showNotice('Link público do Portal com os dados do dia copiado para a área de transferência!');
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
@@ -139,16 +162,17 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleCopyPublicLink}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-xs transition-colors"
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+            title="Copiar link contendo as tarefas e horários de hoje"
           >
             {copiedLink ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-            <span>{copiedLink ? 'Link Copiado!' : 'Copiar Link do Portal'}</span>
+            <span>{copiedLink ? 'Link Copiado!' : 'Copiar Link do Portal com Dados'}</span>
           </button>
 
-          {onClose && (
+          {!isStandalonePortal && onClose && (
             <button
               onClick={onClose}
-              className="px-4 py-2.5 border border-[var(--line)] bg-[var(--paper)] hover:bg-[var(--bg)] text-[var(--ink)] text-xs font-bold rounded-xl flex items-center gap-1.5"
+              className="px-4 py-2.5 border border-[var(--line)] bg-[var(--paper)] hover:bg-[var(--bg)] text-[var(--ink)] text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
             >
               <X className="w-4 h-4" />
               <span>Sair do Portal</span>
@@ -175,33 +199,17 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
       <div className="bg-[var(--paper)] border border-[var(--line)] p-4 md:p-5 rounded-2xl shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-extrabold text-[var(--primary)]">
-            <Search className="w-4 h-4" />
-            <h3>Consulte seu Horário e Tarefa na Escala</h3>
+            <Filter className="w-4 h-4" />
+            <h3>Filtros & Pesquisa da Escala</h3>
           </div>
           <span className="text-[11px] text-[var(--muted)] font-semibold hidden md:inline">
             Data atual: <strong className="text-[var(--ink)]">{formatDateBR(activeDate)}</strong>
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* Employee Name Autocomplete */}
-          <div>
-            <label className="block text-xs font-bold text-[var(--muted)] mb-1">
-              Digite seu Nome ou Matrícula:
-            </label>
-            <input
-              type="text"
-              value={searchName}
-              onChange={(e) => {
-                setSearchName(e.target.value);
-                if (selectedCollabId) setSelectedCollabId(null);
-              }}
-              placeholder="Ex: Ana Beatris Santos..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm font-bold text-[var(--ink)] focus:ring-2 focus:ring-[var(--primary)]"
-            />
-          </div>
-
-          {/* Role Filter */}
+        {/* 1. FILTERS AT THE TOP */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-b border-[var(--line)] pb-4">
+          {/* TL Filter */}
           <div>
             <label className="block text-xs font-bold text-[var(--muted)] mb-1">
               Filtrar por Time / TL:
@@ -209,10 +217,10 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
             <select
               value={selectedTL}
               onChange={(e) => setSelectedTL(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm font-bold text-[var(--ink)] focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm font-bold text-[var(--ink)] focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
             >
               <option value="ALL">Todos os Times ({(state.teamLeaders || []).length})</option>
-              {(state.teamLeaders || []).map((tl) => (
+              {(state.teamLeaders || []).map((tl: string) => (
                 <option key={tl} value={tl}>
                   {tl}
                 </option>
@@ -220,6 +228,7 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
             </select>
           </div>
 
+          {/* Role Filter */}
           <div>
             <label className="block text-xs font-bold text-[var(--muted)] mb-1">
               Filtrar por Cargo / Função:
@@ -227,10 +236,10 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
             <select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm font-bold text-[var(--ink)] focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm font-bold text-[var(--ink)] focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
             >
               <option value="ALL">Todos os Cargos ({allRoles.length})</option>
-              {allRoles.map((r) => (
+              {allRoles.map((r: any) => (
                 <option key={r} value={r}>
                   {r}
                 </option>
@@ -246,16 +255,34 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm font-bold text-[var(--ink)] focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm font-bold text-[var(--ink)] focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
             >
               <option value="ALL">Todas as Categorias ({allCategories.length})</option>
-              {allCategories.map((c) => (
+              {allCategories.map((c: any) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
             </select>
           </div>
+        </div>
+
+        {/* 2. SEARCH BOX BELOW FILTERS */}
+        <div>
+          <label className="block text-xs font-bold text-[var(--muted)] mb-1 flex items-center gap-1.5">
+            <Search className="w-3.5 h-3.5 text-[var(--primary)]" />
+            <span>Digite seu Nome ou Matrícula para Pesquisar:</span>
+          </label>
+          <input
+            type="text"
+            value={searchName}
+            onChange={(e) => {
+              setSearchName(e.target.value);
+              if (selectedCollabId) setSelectedCollabId(null);
+            }}
+            placeholder="Digite o nome do colaborador..."
+            className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm font-bold text-[var(--ink)] focus:ring-2 focus:ring-[var(--primary)]"
+          />
         </div>
 
         {/* Informative note about off-duty filter */}
@@ -265,11 +292,12 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
             {isSearching ? (
               <strong className="text-[var(--primary)]">Pesquisa ativa: exibindo todos os resultados encontrados (incluindo folgas/férias).</strong>
             ) : (
-              <span>Os colaboradores de folga no dia <strong>{formatDateBR(activeDate)}</strong> não são listados por padrão. Digite seu nome acima para pesquisar.</span>
+              <span>Os colaboradores de folga no dia <strong>{formatDateBR(activeDate)}</strong> não são listados por padrão. Digite seu nome na caixa acima para pesquisar.</span>
             )}
           </span>
         </div>
       </div>
+
 
       {/* ACTIVE SELECTED EMPLOYEE CARD HIGHLIGHT */}
       {activeCollab && (

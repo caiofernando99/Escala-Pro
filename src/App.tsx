@@ -23,6 +23,7 @@ const MainLayout: React.FC = () => {
   const [currentView, setCurrentView] = useState('home');
   const [isStandalonePortal, setIsStandalonePortal] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -53,6 +54,7 @@ const MainLayout: React.FC = () => {
   if (isStandalonePortal) {
     return (
       <InteractiveEmployeePortal
+        isStandalonePortal={true}
         onClose={() => {
           setIsStandalonePortal(false);
           window.history.replaceState({}, '', window.location.pathname);
@@ -117,13 +119,19 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-[var(--bg)] text-[var(--ink)] transition-colors duration-200">
-      <Sidebar currentView={currentView} onNavigate={setCurrentView} />
+      <Sidebar
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
+      />
       <main className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         <Header
           pageTitle={getPageTitle(currentView)}
           onOpenTutorial={() => setIsTutorialOpen(true)}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
         />
-        <div className="p-6 flex-1">
+        <div className="p-3 sm:p-4 md:p-6 flex-1">
           {renderView()}
         </div>
       </main>
