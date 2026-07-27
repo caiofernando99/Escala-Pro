@@ -150,11 +150,11 @@ export const ConnectSpreadsheetModal: React.FC<ConnectSpreadsheetModalProps> = (
             />
             {webhookUrl.includes('docs.google.com/spreadsheets') && (
               <p className="text-[11px] text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
-                ⚠️ Aenção: Você inseriu o link da planilha. O Webhook deve ser a URL gerada no Google Apps Script (terminando em /exec).
+                ⚠️ Atenção: Você inseriu o link da planilha. O Webhook deve ser a URL gerada no Google Apps Script (terminando em /exec).
               </p>
             )}
             <p className="text-[11px] text-[var(--muted)]">
-              Caso utilize o script no Google Sheets, o endpoint atualiza automaticamente a escala e as configurações do sistema.
+              Sua planilha funciona como banco de dados online em tempo real. Todos os membros da equipe que utilizarem a aplicação com essa mesma configuração verão atualizações em tempo real.
             </p>
 
             <div className="flex items-center gap-2 pt-2">

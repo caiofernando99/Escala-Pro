@@ -117,6 +117,17 @@ export const Header: React.FC<HeaderProps> = ({ pageTitle, onOpenTutorial, onTog
             />
           </div>
 
+          {/* Real-time Spreadsheet Sync Status Pill */}
+          {state.onlineSpreadsheet && state.onlineSpreadsheet.webhookUrl && (
+            <div
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10.5px] font-black border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800 shadow-2xs"
+              title={`Sincronizado com "${state.onlineSpreadsheet.name}" • Última atualização: ${state.onlineSpreadsheet.lastSyncedAt || 'Agora'}`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+              <span className="truncate hidden sm:inline">Tempo Real Ativo</span>
+            </div>
+          )}
+
           {onOpenTutorial && (
             <button
               onClick={onOpenTutorial}

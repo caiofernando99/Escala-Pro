@@ -273,14 +273,14 @@ export const PresenceView: React.FC = () => {
 
           {/* RENDER BY SELECTED GROUPING MODE */}
           {groupBy === 'cargo_categoria' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+            <div className="columns-1 sm:columns-2 lg:columns-3 gap-2.5 space-y-2.5 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
               {Object.keys(groupedByRoleCategory).length > 0 ? (
                 Object.entries(groupedByRoleCategory).map(([groupKey, rawList]) => {
                   const list = rawList as typeof filteredPresent;
                   const [rName, cName] = groupKey.split(' • ');
                   return (
-                    <div key={groupKey} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-3 space-y-2 shadow-2xs hover:border-[var(--primary-border)] transition-all flex flex-col justify-between">
-                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                    <div key={groupKey} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-2.5 space-y-2 shadow-2xs hover:border-[var(--primary-border)] transition-all break-inside-avoid inline-block w-full">
+                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-1.5">
                         <div className="flex items-center gap-1.5 min-w-0 pr-1">
                           <Users className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
                           <h5 className="text-xs font-black text-[var(--ink)] uppercase tracking-wide truncate">
@@ -292,10 +292,10 @@ export const PresenceView: React.FC = () => {
                         </span>
                       </div>
 
-                      {/* Internal Scroll Container inside card */}
-                      <div className="divide-y divide-[var(--line)] max-h-56 overflow-y-auto pr-1">
+                      {/* Dynamic List with max-h-64 internal scroll for long lists */}
+                      <div className="divide-y divide-[var(--line)] max-h-64 overflow-y-auto pr-1">
                         {list.map(({ collaborator, isExtraPresence }) => (
-                          <div key={collaborator.id} className="py-2 flex items-center justify-between gap-2 px-1">
+                          <div key={collaborator.id} className="py-1.5 flex items-center justify-between gap-2 px-1">
                             <div className="flex items-center gap-2 min-w-0">
                               <input
                                 type="checkbox"
@@ -305,19 +305,19 @@ export const PresenceView: React.FC = () => {
                               />
                               <div className="min-w-0">
                                 <div className="text-xs font-bold text-[var(--ink)] truncate flex items-center gap-1.5">
-                                  <span>{collaborator.name}</span>
+                                  <span className="truncate">{collaborator.name}</span>
                                   {isExtraPresence && (
                                     <span className="text-[8.5px] font-black bg-purple-100 dark:bg-purple-950 text-purple-900 dark:text-purple-200 border border-purple-300 dark:border-purple-800 px-1.5 py-0.2 rounded-md shrink-0">
                                       TROCA
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[9.5px] text-[var(--muted)] flex items-center gap-1">
+                                <div className="text-[9.5px] text-[var(--muted)] flex items-center gap-1 truncate">
                                   <span>Turma {collaborator.scale}</span>
                                   {collaborator.teamLeader && (
                                     <>
                                       <span>•</span>
-                                      <span>TL: {collaborator.teamLeader}</span>
+                                      <span className="truncate">TL: {collaborator.teamLeader}</span>
                                     </>
                                   )}
                                 </div>
@@ -340,10 +340,10 @@ export const PresenceView: React.FC = () => {
             </div>
           )}
           {groupBy === 'geral' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 w-full max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 w-full items-start max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
               {filteredPresent.length > 0 ? (
                 filteredPresent.map(({ collaborator, isExtraPresence }) => (
-                  <div key={collaborator.id} className="p-3 bg-[var(--bg)] border border-[var(--line)] hover:border-[var(--primary-border)] rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                  <div key={collaborator.id} className="p-2.5 bg-[var(--bg)] border border-[var(--line)] hover:border-[var(--primary-border)] rounded-xl flex items-center justify-between gap-2 shadow-2xs">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <input
                         type="checkbox"
@@ -377,13 +377,13 @@ export const PresenceView: React.FC = () => {
 
           {/* POR CARGO MODE */}
           {groupBy === 'cargo' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+            <div className="columns-1 sm:columns-2 lg:columns-3 gap-2.5 space-y-2.5 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
               {Object.keys(groupedByRole).length > 0 ? (
                 Object.entries(groupedByRole).map(([roleName, rawList]) => {
                   const list = rawList as typeof filteredPresent;
                   return (
-                    <div key={roleName} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-3 space-y-2 shadow-2xs hover:border-[var(--primary-border)] transition-all flex flex-col justify-between">
-                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                    <div key={roleName} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-2.5 space-y-2 shadow-2xs hover:border-[var(--primary-border)] transition-all break-inside-avoid inline-block w-full">
+                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-1.5">
                         <div className="flex items-center gap-1.5 min-w-0 pr-1">
                           <Users className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
                           <h5 className="text-xs font-black text-[var(--ink)] uppercase tracking-wider truncate">{roleName}</h5>
@@ -394,9 +394,9 @@ export const PresenceView: React.FC = () => {
                       </div>
 
                       {/* Internal Scroll Container inside card */}
-                      <div className="divide-y divide-[var(--line)] max-h-56 overflow-y-auto pr-1">
+                      <div className="divide-y divide-[var(--line)] max-h-64 overflow-y-auto pr-1">
                         {list.map(({ collaborator, isExtraPresence }) => (
-                          <div key={collaborator.id} className="py-2 flex items-center justify-between gap-2 px-1">
+                          <div key={collaborator.id} className="py-1.5 flex items-center justify-between gap-2 px-1">
                             <div className="flex items-center gap-2 min-w-0">
                               <input
                                 type="checkbox"
@@ -406,7 +406,7 @@ export const PresenceView: React.FC = () => {
                               />
                               <div className="min-w-0">
                                 <div className="text-xs font-bold text-[var(--ink)] truncate">{collaborator.name}</div>
-                                <div className="text-[9.5px] text-[var(--muted)] flex items-center gap-1">
+                                <div className="text-[9.5px] text-[var(--muted)] flex items-center gap-1 truncate">
                                   <span className="text-purple-600 dark:text-purple-400 font-semibold">{collaborator.category}</span>
                                   <span>•</span>
                                   <span>Turma {collaborator.scale}</span>
@@ -432,13 +432,13 @@ export const PresenceView: React.FC = () => {
 
           {/* POR CATEGORIA MODE */}
           {groupBy === 'categoria' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+            <div className="columns-1 sm:columns-2 lg:columns-3 gap-2.5 space-y-2.5 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
               {Object.keys(groupedByCategory).length > 0 ? (
                 Object.entries(groupedByCategory).map(([categoryName, rawList]) => {
                   const list = rawList as typeof filteredPresent;
                   return (
-                    <div key={categoryName} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-3 space-y-2 shadow-2xs hover:border-[var(--primary-border)] transition-all flex flex-col justify-between">
-                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                    <div key={categoryName} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-2.5 space-y-2 shadow-2xs hover:border-[var(--primary-border)] transition-all break-inside-avoid inline-block w-full">
+                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-1.5">
                         <div className="flex items-center gap-1.5 min-w-0 pr-1">
                           <Tag className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                           <h5 className="text-xs font-black text-[var(--ink)] uppercase tracking-wider truncate">{categoryName}</h5>
@@ -449,9 +449,9 @@ export const PresenceView: React.FC = () => {
                       </div>
 
                       {/* Internal Scroll Container inside card */}
-                      <div className="divide-y divide-[var(--line)] max-h-56 overflow-y-auto pr-1">
+                      <div className="divide-y divide-[var(--line)] max-h-64 overflow-y-auto pr-1">
                         {list.map(({ collaborator, isExtraPresence }) => (
-                          <div key={collaborator.id} className="py-2 flex items-center justify-between gap-2 px-1">
+                          <div key={collaborator.id} className="py-1.5 flex items-center justify-between gap-2 px-1">
                             <div className="flex items-center gap-2 min-w-0">
                               <input
                                 type="checkbox"
@@ -461,7 +461,7 @@ export const PresenceView: React.FC = () => {
                               />
                               <div className="min-w-0">
                                 <div className="text-xs font-bold text-[var(--ink)] truncate">{collaborator.name}</div>
-                                <div className="text-[9.5px] text-[var(--muted)] flex items-center gap-1">
+                                <div className="text-[9.5px] text-[var(--muted)] flex items-center gap-1 truncate">
                                   <span className="text-blue-600 dark:text-blue-400 font-semibold">{collaborator.role}</span>
                                   <span>•</span>
                                   <span>Turma {collaborator.scale}</span>
@@ -596,11 +596,11 @@ export const PresenceView: React.FC = () => {
                 scaleOffList.map(({ collaborator }) => (
                   <div
                     key={collaborator.id}
-                    className="p-2.5 bg-[var(--bg)] border border-[var(--line)] hover:border-purple-300 rounded-xl flex items-center justify-between text-xs transition-colors"
+                    className="p-2.5 bg-[var(--bg)] border border-[var(--line)] hover:border-purple-300 rounded-xl flex items-center justify-between text-xs transition-colors gap-2"
                   >
-                    <div>
-                      <div className="font-extrabold text-[var(--ink)]">{collaborator.name}</div>
-                      <div className="text-[10px] text-[var(--muted)] font-medium">
+                    <div className="min-w-0">
+                      <div className="font-extrabold text-[var(--ink)] truncate">{collaborator.name}</div>
+                      <div className="text-[10px] text-[var(--muted)] font-medium truncate">
                         Turma {collaborator.scale} • {collaborator.role}
                       </div>
                     </div>

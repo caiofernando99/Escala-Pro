@@ -41,14 +41,34 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
   };
 
   const appsScriptCode = `function doGet(e) {
-  return ContentService.createTextOutput(
-    JSON.stringify({
-      status: "success",
-      service: "EscalaPro Google Apps Script Webhook",
-      message: "Webhook ativo e pronto para receber sincronizações da sua equipe!",
-      timestamp: new Date().toLocaleString("pt-BR")
-    })
-  ).setMimeType(ContentService.MimeType.JSON);
+  try {
+    var rawState = PropertiesService.getScriptProperties().getProperty("FULL_APP_STATE");
+    if (!rawState) {
+      var ss = SpreadsheetApp.getActiveSpreadsheet();
+      var sheetDb = ss.getSheetByName("__DB_STATE__");
+      if (sheetDb && sheetDb.getLastRow() >= 1) {
+        rawState = sheetDb.getRange("A1").getValue();
+      }
+    }
+    
+    if (rawState) {
+      return ContentService.createTextOutput(rawState)
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        status: "empty",
+        service: "EscalaPro Google Apps Script Webhook",
+        message: "Webhook ativo e pronto para sincronizar em tempo real!",
+        timestamp: new Date().toLocaleString("pt-BR")
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "error", error: err.toString() })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function doPost(e) {
@@ -56,6 +76,17 @@ function doPost(e) {
     var contents = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var timestamp = new Date().toLocaleString("pt-BR");
+    
+    // -------------------------------------------------------------
+    // BANCO DE DADOS EM TEMPO REAL: Salva o estado completo no Apps Script
+    // -------------------------------------------------------------
+    var rawJson = e.postData.contents;
+    PropertiesService.getScriptProperties().setProperty("FULL_APP_STATE", rawJson);
+    PropertiesService.getScriptProperties().setProperty("LAST_UPDATED_AT", new Date().getTime().toString());
+    
+    var sheetDb = ss.getSheetByName("__DB_STATE__") || ss.insertSheet("__DB_STATE__");
+    sheetDb.getRange("A1").setValue(rawJson);
+    try { sheetDb.hideSheet(); } catch (err) {}
     
     // -------------------------------------------------------------
     // 1. ABA MESTRE DA EQUIPE (CRUD: Colaboradores, Cargos, Times e Dados)

@@ -64,6 +64,7 @@ interface AppContextType {
   removeTeamLeader: (name: string) => void;
   setOnlineSpreadsheetConfig: (config: OnlineSpreadsheetConfig | null) => void;
   syncToOnlineSpreadsheet: (isAutoSync?: boolean) => Promise<boolean>;
+  fetchFromOnlineSpreadsheet: (isSilent?: boolean) => Promise<boolean>;
   exportLocalSpreadsheet: () => void;
   exportTeamRosterSpreadsheet: () => void;
   generateTemplateSpreadsheet: () => void;
@@ -1141,10 +1142,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotice(`Planilha modelo baixada para criação de banco de dados no Google Sheets.`);
   };
 
+  const lastLocalEditTime = useRef<number>(0);
+  const lastSyncedTimestampMs = useRef<number>(0);
+
   const setOnlineSpreadsheetConfig = (config: OnlineSpreadsheetConfig | null) => {
     setState((prev) => ({ ...prev, onlineSpreadsheet: config }));
     if (config) {
-      showNotice(`Planilha "${config.name}" conectada com sucesso!`);
+      showNotice(`Planilha "${config.name}" conectada com sucesso! Sincronizando dados em tempo real...`);
+      if (config.webhookUrl) {
+        setTimeout(() => {
+          fetchFromOnlineSpreadsheet(false);
+        }, 300);
+      }
     } else {
       showNotice('Planilha online desconectada.');
     }
@@ -1156,6 +1165,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const toggleSidebarCollapsed = () => {
     setState((prev) => ({ ...prev, isSidebarCollapsed: !prev.isSidebarCollapsed }));
+  };
+
+  const fetchFromOnlineSpreadsheet = async (isSilent = false): Promise<boolean> => {
+    const currentConfig = state.onlineSpreadsheet;
+    if (!currentConfig || !currentConfig.webhookUrl) return false;
+
+    const webhookUrl = currentConfig.webhookUrl.trim();
+    if (webhookUrl.includes('docs.google.com/spreadsheets')) return false;
+
+    try {
+      const res = await fetch(webhookUrl, { method: 'GET' });
+      if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+      const data = await res.json();
+
+      if (!data || data.status === 'empty') {
+        if (state.collaborators.length > 0 && !isSilent) {
+          syncToOnlineSpreadsheet(true);
+        }
+        return false;
+      }
+
+      const remoteState = data.rawState || (data.collaborators ? data : null);
+      if (!remoteState || !Array.isArray(remoteState.collaborators)) {
+        return false;
+      }
+
+      const remoteUpdatedAtMs = remoteState.updatedAtMs || 0;
+      if (remoteUpdatedAtMs && remoteUpdatedAtMs <= lastSyncedTimestampMs.current) {
+        return false;
+      }
+
+      lastSyncedTimestampMs.current = remoteUpdatedAtMs || Date.now();
+      const now = new Date();
+      const timestampStr = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR')}`;
+
+      setState((prev) => ({
+        ...prev,
+        collaborators: remoteState.collaborators || prev.collaborators,
+        tasks: remoteState.tasks || prev.tasks,
+        breaks: remoteState.breaks || prev.breaks,
+        attendance: remoteState.attendance || prev.attendance,
+        intervals: remoteState.intervals || prev.intervals,
+        roles: remoteState.roles || prev.roles,
+        categories: remoteState.categories || prev.categories,
+        scales: remoteState.scales || prev.scales,
+        teamLeaders: remoteState.teamLeaders || prev.teamLeaders,
+        reasons: remoteState.reasons || prev.reasons,
+        dailyReports: remoteState.dailyReports || prev.dailyReports,
+        teamName: remoteState.teamName || prev.teamName,
+        sector: remoteState.sector || prev.sector,
+        manager: remoteState.manager || prev.manager,
+        teamShift: remoteState.teamShift || prev.teamShift,
+        defaultTeamLeader: remoteState.defaultTeamLeader || prev.defaultTeamLeader,
+        onlineSpreadsheet: prev.onlineSpreadsheet
+          ? {
+              ...prev.onlineSpreadsheet,
+              lastSyncedAt: timestampStr,
+              syncStatus: 'success',
+              lastError: undefined,
+            }
+          : null,
+      }));
+
+      if (!isSilent) {
+        showNotice('Dados sincronizados em tempo real com a planilha online!');
+      }
+      return true;
+    } catch (err) {
+      if (!isSilent) {
+        console.warn('Erro ao buscar dados da planilha compartilhada:', err);
+      }
+      return false;
+    }
   };
 
   const syncToOnlineSpreadsheet = async (isAutoSync = false): Promise<boolean> => {
@@ -1187,6 +1269,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const now = new Date();
+    const timestampMs = Date.now();
+    lastSyncedTimestampMs.current = timestampMs;
     const timestampStr = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR')}`;
 
     try {
@@ -1243,6 +1327,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const absenteeismRate = totalCols > 0 ? ((absentCount / totalCols) * 100).toFixed(1) + '%' : '0%';
 
       const payload = {
+        rawState: {
+          updatedAtMs: timestampMs,
+          updatedAt: timestampStr,
+          collaborators: state.collaborators,
+          tasks: state.tasks,
+          breaks: state.breaks,
+          attendance: state.attendance,
+          intervals: state.intervals,
+          roles: state.roles,
+          categories: state.categories,
+          scales: state.scales,
+          teamLeaders: state.teamLeaders,
+          reasons: state.reasons,
+          dailyReports: state.dailyReports,
+          teamName: state.teamName,
+          sector: state.sector,
+          manager: state.manager,
+          teamShift: state.teamShift,
+          defaultTeamLeader: state.defaultTeamLeader,
+          brandId: state.brandId,
+        },
         date: formatDateBR(state.selectedDate),
         teamName: state.teamName,
         sector: state.sector,
@@ -1392,6 +1497,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
+    lastLocalEditTime.current = Date.now();
+
     if (
       state.onlineSpreadsheet &&
       state.onlineSpreadsheet.webhookUrl &&
@@ -1399,7 +1506,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ) {
       const timer = setTimeout(() => {
         syncToOnlineSpreadsheet(true);
-      }, 1500);
+      }, 1200);
       return () => clearTimeout(timer);
     }
   }, [
@@ -1416,7 +1523,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     state.categories,
     state.teamLeaders,
     state.selectedDate,
+    state.dailyReports,
   ]);
+
+  // Background polling effect to receive changes from other team members using the same spreadsheet
+  useEffect(() => {
+    const currentConfig = state.onlineSpreadsheet;
+    if (!currentConfig || !currentConfig.webhookUrl || currentConfig.autoSyncEnabled === false) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      // Only pull if user hasn't edited locally in the last 3.5 seconds
+      if (Date.now() - lastLocalEditTime.current > 3500) {
+        fetchFromOnlineSpreadsheet(true);
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [state.onlineSpreadsheet?.webhookUrl, state.onlineSpreadsheet?.autoSyncEnabled]);
 
   return (
     <AppContext.Provider
@@ -1478,6 +1603,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         removeTeamLeader,
         setOnlineSpreadsheetConfig,
         syncToOnlineSpreadsheet,
+        fetchFromOnlineSpreadsheet,
         exportLocalSpreadsheet,
         exportTeamRosterSpreadsheet,
         generateTemplateSpreadsheet,
