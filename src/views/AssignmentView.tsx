@@ -12,7 +12,7 @@ import {
   ChevronDown,
   Sparkles,
 } from 'lucide-react';
-import { matchesSearch, isScaleOff } from '../utils/helpers';
+import { matchesSearch, isScaleOff, getCollaboratorStatus } from '../utils/helpers';
 import { Task, Collaborator } from '../types';
 
 export const AssignmentView: React.FC = () => {
@@ -32,15 +32,10 @@ export const AssignmentView: React.FC = () => {
 
   const activeDate = state.selectedDate;
 
-  // Active present people (not on vacation/leave/training and not scale off and attendance != false)
+  // Active present people (includes manual presence overrides e.g. troca de folga)
   const presentPeople = state.collaborators.filter((c) => {
-    const hasAbsence = (c.absences || []).some((a) => activeDate >= a.startDate && activeDate <= a.endDate);
-    if (hasAbsence) return false;
-    const off = isScaleOff(state.calendar, activeDate, c.scale);
-    if (off) return false;
-    const manual = state.attendance[activeDate]?.[c.id];
-    if (manual === false) return false;
-    return true;
+    const statusInfo = getCollaboratorStatus(c, activeDate, state);
+    return statusInfo.status === 'presente';
   });
 
   // Filter present people by search term, role, category
@@ -331,7 +326,9 @@ export const AssignmentView: React.FC = () => {
                               className="p-1 bg-[var(--bg)] border border-[var(--line)] rounded-md flex items-center justify-between text-[10px] hover:border-[var(--primary)] transition-colors shadow-2xs"
                             >
                               <div className="min-w-0 pr-1">
-                                <span className="font-extrabold text-[var(--ink)] truncate block text-[10px]">{col.name}</span>
+                                <span className="font-extrabold text-[var(--ink)] truncate block text-[10px]">
+                                  {col.name} <span className="text-[var(--primary)] font-black">[{col.scale}]</span>
+                                </span>
                                 <span className="text-[8.5px] text-[var(--muted)] truncate block">
                                   {col.role || 'Geral'} • {col.category || 'Geral'}
                                 </span>

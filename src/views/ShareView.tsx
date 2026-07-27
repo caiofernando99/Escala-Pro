@@ -30,7 +30,11 @@ import {
 } from 'lucide-react';
 import { matchesSearch, isScaleOff, formatDateBR, formatDateLongBR, encodeSharedState } from '../utils/helpers';
 
-export const ShareView: React.FC = () => {
+interface ShareViewProps {
+  onNavigate?: (view: string) => void;
+}
+
+export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
   const {
     state,
     saveHistory,
@@ -185,11 +189,11 @@ export const ShareView: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
-            onClick={() => setShowSlideModal(true)}
+            onClick={() => onNavigate?.('briefing')}
             className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors border border-amber-400 cursor-pointer"
           >
             <Presentation className="w-3.5 h-3.5 text-slate-950" />
-            <span>Slide de Briefing</span>
+            <span>Ver Slide de Briefing (TV 16:9)</span>
           </button>
 
           <button
@@ -219,306 +223,6 @@ export const ShareView: React.FC = () => {
         </div>
       )}
 
-      {/* BRIEFING SLIDE GENERATOR MODAL */}
-      {showSlideModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto no-print">
-          <div className="bg-[var(--paper)] text-[var(--ink)] border border-[var(--line)] rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden transition-all my-auto">
-            {/* Modal Header */}
-            <div className="p-3 sm:p-4 bg-[var(--bg)] border-b border-[var(--line)] space-y-3 shrink-0">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary-border)] rounded-xl">
-                    <Presentation className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-[var(--ink)]">Slide de Briefing Operacional (16:9 Ajustado)</h3>
-                    <p className="text-[11px] text-[var(--muted)] font-medium">
-                      Otimizado para caber em um único slide 16:9 e pronto para apresentação ou Google Forms.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleCopyText()}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Copiado!' : 'Copiar Texto'}</span>
-                  </button>
-
-                  <button
-                    onClick={handlePrint}
-                    className="px-3.5 py-1.5 bg-[var(--primary)] text-white text-xs font-extrabold rounded-xl flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Imprimir Slide (16:9)</span>
-                  </button>
-
-                  <button
-                    onClick={() => setShowSlideModal(false)}
-                    className="p-1.5 bg-[var(--bg)] hover:bg-slate-200 dark:hover:bg-slate-800 text-[var(--muted)] hover:text-[var(--ink)] rounded-xl border border-[var(--line)] cursor-pointer transition-colors"
-                    title="Fechar Slide"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Filters & Options Toolbar */}
-              <div className="bg-[var(--paper)] p-2.5 rounded-xl border border-[var(--line)] flex flex-wrap items-center gap-2 text-xs">
-                {/* Filter Category */}
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-[var(--muted)] text-[11px]">Categoria:</span>
-                  <select
-                    value={slideCategoryFilter}
-                    onChange={(e) => setSlideCategoryFilter(e.target.value)}
-                    className="bg-[var(--bg)] border border-[var(--line)] text-[var(--ink)] text-[11px] font-bold px-2 py-1 rounded-lg focus:ring-1 focus:ring-[var(--primary)] cursor-pointer"
-                  >
-                    <option value="todos">Todas Categoriass</option>
-                    {availableCategories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Filter Role */}
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-[var(--muted)] text-[11px]">Cargo:</span>
-                  <select
-                    value={slideRoleFilter}
-                    onChange={(e) => setSlideRoleFilter(e.target.value)}
-                    className="bg-[var(--bg)] border border-[var(--line)] text-[var(--ink)] text-[11px] font-bold px-2 py-1 rounded-lg focus:ring-1 focus:ring-[var(--primary)] cursor-pointer"
-                  >
-                    <option value="todos">Todos os Cargos</option>
-                    {availableRoles.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Filter TL */}
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-[var(--muted)] text-[11px]">Time / TL:</span>
-                  <select
-                    value={slideTLFilter}
-                    onChange={(e) => setSlideTLFilter(e.target.value)}
-                    className="bg-[var(--bg)] border border-[var(--line)] text-[var(--ink)] text-[11px] font-bold px-2 py-1 rounded-lg focus:ring-1 focus:ring-[var(--primary)] cursor-pointer"
-                  >
-                    <option value="todos">Todos os Times</option>
-                    {availableTLs.map((tl) => (
-                      <option key={tl} value={tl}>
-                        {tl}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Density selector */}
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-[var(--muted)] text-[11px]">Tamanho Fonte:</span>
-                  <select
-                    value={slideDensity}
-                    onChange={(e) => setSlideDensity(e.target.value as any)}
-                    className="bg-[var(--bg)] border border-[var(--line)] text-[var(--ink)] text-[11px] font-bold px-2 py-1 rounded-lg focus:ring-1 focus:ring-[var(--primary)] cursor-pointer"
-                  >
-                    <option value="auto">Automático</option>
-                    <option value="normal">Normal</option>
-                    <option value="compact">Compacto</option>
-                    <option value="ultra">Ultra Compacto</option>
-                  </select>
-                </div>
-
-                {/* Toggle empty tasks */}
-                <label className="flex items-center gap-1.5 px-2 py-1 bg-[var(--bg)] border border-[var(--line)] rounded-lg text-[11px] font-bold text-[var(--ink)] cursor-pointer hover:border-[var(--primary-border)]">
-                  <input
-                    type="checkbox"
-                    checked={hideEmptyTasksInSlide}
-                    onChange={(e) => setHideEmptyTasksInSlide(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded accent-[var(--primary)] cursor-pointer"
-                  />
-                  <span>Ocultar Tarefas Vazias</span>
-                </label>
-
-                {/* Optional Toggle for Break/Meal Times */}
-                <label className="flex items-center gap-1.5 px-2 py-1 bg-[var(--bg)] border border-[var(--line)] rounded-lg text-[11px] font-bold text-[var(--ink)] cursor-pointer hover:border-[var(--primary-border)] ml-auto">
-                  <input
-                    type="checkbox"
-                    checked={includeMealsInSlide}
-                    onChange={(e) => setIncludeMealsInSlide(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded accent-[var(--primary)] cursor-pointer"
-                  />
-                  <span>Exibir Refeição</span>
-                </label>
-
-                {includeMealsInSlide && (
-                  <select
-                    value={mealTypeLabel}
-                    onChange={(e) => setMealTypeLabel(e.target.value as any)}
-                    className="bg-[var(--bg)] border border-[var(--line)] text-[var(--ink)] text-[11px] font-bold px-2 py-1 rounded-lg focus:ring-1 focus:ring-[var(--primary)] cursor-pointer"
-                  >
-                    <option value="janta">Janta (T2/T3)</option>
-                    <option value="almoco">Almoço (T1/T4)</option>
-                    <option value="refeicao">Refeição</option>
-                  </select>
-                )}
-              </div>
-            </div>
-
-            {/* Slide Body Preview Area */}
-            <div className="p-2 sm:p-4 bg-[var(--bg)] flex-1 overflow-y-auto flex items-center justify-center min-h-0">
-              {/* 16:9 ASPECT RATIO SLIDE CANVAS */}
-              {(() => {
-                const taskCount = slideDisplayedTasks.length;
-                let gridColsClass = 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
-                if (taskCount <= 3) gridColsClass = 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
-                else if (taskCount <= 6) gridColsClass = 'grid-cols-2 md:grid-cols-3 lg:grid-cols-3';
-                else if (taskCount <= 9) gridColsClass = 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
-                else gridColsClass = 'grid-cols-3 md:grid-cols-4 lg:grid-cols-5';
-
-                const isUltra = slideDensity === 'ultra' || (slideDensity === 'auto' && taskCount > 8);
-                const isCompact = slideDensity === 'compact' || (slideDensity === 'auto' && taskCount > 4 && taskCount <= 8);
-
-                const cardPadding = isUltra ? 'p-1.5 space-y-1' : isCompact ? 'p-2 space-y-1.5' : 'p-2.5 space-y-2';
-                const nameTextSize = isUltra ? 'text-[10px]' : isCompact ? 'text-[11px]' : 'text-xs';
-                const roleTextSize = isUltra ? 'text-[8px]' : 'text-[9px]';
-                const itemPadding = isUltra ? 'p-1' : 'p-1.5';
-
-                return (
-                  <div
-                    id="briefing-slide-canvas"
-                    className="w-full max-w-5xl aspect-[16/9] bg-[var(--paper)] text-[var(--ink)] border-2 border-[var(--line)] rounded-2xl p-3 md:p-5 shadow-2xl flex flex-col justify-between overflow-hidden relative"
-                  >
-                    {/* Slide Top Header Banner */}
-                    <div className="bg-[var(--bg)] p-2.5 md:p-3 rounded-xl border border-[var(--line)] flex flex-row items-center justify-between gap-2 shrink-0">
-                      <div className="space-y-0.5 min-w-0">
-                        <div className="flex items-center gap-1.5 text-[var(--primary)] font-black text-[9px] md:text-[10px] uppercase tracking-widest">
-                          <Presentation className="w-3 h-3" />
-                          <span>Briefing Operacional Diário</span>
-                        </div>
-                        <h2 className="text-sm md:text-lg font-black text-[var(--ink)] uppercase tracking-tight truncate">
-                          {state.teamName || 'EQUIPE OPERACIONAL'} — DIMENSIONAMENTO
-                        </h2>
-                        <p className="text-[10px] font-bold text-[var(--muted)] truncate">
-                          Setor: <strong className="text-[var(--ink)]">{state.sector || 'Geral'}</strong> • Data: <strong className="text-[var(--primary)]">{formatDateBR(activeDate)}</strong> ({formatDateLongBR(activeDate)})
-                          {slideCategoryFilter !== 'todos' && <span> • Categoria: <strong>{slideCategoryFilter}</strong></span>}
-                          {slideRoleFilter !== 'todos' && <span> • Cargo: <strong>{slideRoleFilter}</strong></span>}
-                          {slideTLFilter !== 'todos' && <span> • TL: <strong>{slideTLFilter}</strong></span>}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="px-2 py-0.5 bg-[var(--paper)] border border-[var(--line)] rounded-lg text-[11px] font-extrabold text-[var(--ink)]">
-                          Turno: {state.teamShift || 'T2'}
-                        </span>
-                        <span className={`px-2 py-0.5 border rounded-lg text-[11px] font-black ${
-                          includeMealsInSlide
-                            ? 'bg-[var(--primary-soft)] border-[var(--primary-border)] text-[var(--primary)]'
-                            : 'bg-amber-100 dark:bg-amber-950 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
-                        }`}>
-                          {includeMealsInSlide
-                            ? `Com Refeição (${mealTypeLabel === 'almoco' ? 'Almoço' : 'Janta'})`
-                            : `Sem Refeição`}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Sizing Grid (FITS STRICTLY INSIDE 16:9 SLIDE) */}
-                    <div className={`grid ${gridColsClass} gap-1.5 md:gap-2 my-2 flex-1 overflow-y-auto pr-0.5`}>
-                      {slideDisplayedTasks.map((task) => {
-                        const members = task.filteredMembers;
-                        const memberCount = members.length;
-
-                        // Dynamic column span & internal list layout based on member count
-                        let colSpanClass = 'col-span-1';
-                        let innerListClass = 'space-y-1';
-
-                        if (memberCount > 10) {
-                          colSpanClass = 'col-span-1 sm:col-span-2 md:col-span-2 lg:col-span-3';
-                          innerListClass = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1';
-                        } else if (memberCount > 5) {
-                          colSpanClass = 'col-span-1 sm:col-span-2';
-                          innerListClass = 'grid grid-cols-1 sm:grid-cols-2 gap-1';
-                        }
-
-                        const isDense = memberCount > 6 || isUltra;
-                        const curItemPadding = isDense ? 'p-1' : itemPadding;
-
-                        return (
-                          <div
-                            key={task.id}
-                            className={`bg-[var(--bg)] border border-[var(--line)] rounded-xl ${cardPadding} ${colSpanClass} flex flex-col justify-between text-xs transition-all`}
-                          >
-                            <div>
-                              <div className="flex items-center justify-between border-b border-[var(--line)] pb-1 mb-1">
-                                <h4 className={`${nameTextSize} font-black text-[var(--ink)] uppercase tracking-wider flex items-center gap-1 truncate`}>
-                                  <Briefcase className="w-3 h-3 text-[var(--primary)] shrink-0" />
-                                  <span className="truncate">{task.name}</span>
-                                </h4>
-                                <span className="text-[9px] font-black bg-[var(--paper)] text-[var(--primary)] border border-[var(--primary-border)] px-1.5 py-0.1 rounded-full shrink-0">
-                                  {members.length} {members.length === 1 ? 'pessoa' : 'pessoas'}
-                                </span>
-                              </div>
-
-                              <div className={innerListClass}>
-                                {members.length > 0 ? (
-                                  members.map((col) => {
-                                    const breakTime = getBreakTime(col.id);
-                                    return (
-                                      <div
-                                        key={col.id}
-                                        className={`${curItemPadding} bg-[var(--paper)] border border-[var(--line)] rounded-lg flex items-center justify-between text-[10px] shadow-2xs`}
-                                      >
-                                        <div className="min-w-0 pr-1">
-                                          <div className={`font-extrabold text-[var(--ink)] truncate ${isDense ? 'text-[9.5px]' : nameTextSize}`}>{col.name}</div>
-                                          <div className={`${roleTextSize} text-[var(--muted)] truncate`}>
-                                            {col.role || 'Operador'} • {col.category || 'Geral'}
-                                          </div>
-                                        </div>
-
-                                        {/* Optional Break Time Badge */}
-                                        {includeMealsInSlide && (
-                                          <div className="flex items-center gap-0.5 bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary-border)] px-1 py-0.2 rounded font-black text-[8px] shrink-0">
-                                            <Clock className="w-2 h-2" />
-                                            <span>{breakTime}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })
-                                ) : (
-                                  <p className="text-[9px] text-[var(--muted)] italic p-1 text-center col-span-full">
-                                    Sem pessoas alocadas
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Footer Note */}
-                    <div className="flex items-center justify-between text-[9px] text-[var(--muted)] font-medium border-t border-[var(--line)] pt-1.5 shrink-0">
-                      <span>
-                        Briefing Gerado pelo EscalaPro • {state.teamName} ({formatDateBR(activeDate)})
-                      </span>
-                      <span>
-                        * Slide ajustado para o formato 16:9 com dimensionamento automático da equipe.
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Connect Spreadsheet Modal */}
       <ConnectSpreadsheetModal
         isOpen={showConnectModal}
@@ -544,12 +248,12 @@ export const ShareView: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-1.5">
           <button
-            onClick={() => setShowSlideModal(true)}
+            onClick={() => onNavigate?.('briefing')}
             className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black rounded-lg flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-            title="Gerar visualização em slide para briefing e forms"
+            title="Ver slide de briefing em tela cheia 16:9"
           >
             <Presentation className="w-3.5 h-3.5" />
-            <span>Slide Briefing</span>
+            <span>Slide Briefing 16:9</span>
           </button>
 
           <SearchInput

@@ -15,6 +15,7 @@ import { ShareView } from './views/ShareView';
 import { ReportView } from './views/ReportView';
 import { SettingsView } from './views/SettingsView';
 import { HelpView } from './views/HelpView';
+import { BriefingView } from './views/BriefingView';
 
 const TUTORIAL_SEEN_KEY = 'escalapro_tutorial_seen_v1';
 
@@ -77,6 +78,10 @@ const MainLayout: React.FC = () => {
         return 'Dimensionamento de Tarefas';
       case 'breaks':
         return 'Horários de Intervalo';
+      case 'briefing':
+        return 'Apresentação Briefing (16:9)';
+      case 'portal':
+        return 'Portal de Consulta do Colaborador';
       case 'share':
         return 'Resumo para Compartilhar';
       case 'report':
@@ -104,8 +109,12 @@ const MainLayout: React.FC = () => {
         return <AssignmentView />;
       case 'breaks':
         return <BreaksView />;
+      case 'briefing':
+        return <BriefingView />;
+      case 'portal':
+        return <InteractiveEmployeePortal onClose={() => setCurrentView('home')} />;
       case 'share':
-        return <ShareView />;
+        return <ShareView onNavigate={setCurrentView} />;
       case 'report':
         return <ReportView />;
       case 'settings':

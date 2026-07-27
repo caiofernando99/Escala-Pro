@@ -31,6 +31,7 @@ export interface Task {
   members: string[]; // Collaborator IDs
   allowedRoles?: string[]; // Cargo(s) vinculados
   allowedCategories?: string[]; // Categoria(s) vinculadas
+  active?: boolean; // Se a tarefa está ativa ou oculta
 }
 
 export interface BreakSlot {

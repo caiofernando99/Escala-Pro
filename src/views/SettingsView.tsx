@@ -293,12 +293,39 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Compact Themes Section */}
+      {/* Export & Import Backup Section (JSON) */}
+      <div className="bg-[var(--paper)] border border-[var(--line)] p-6 rounded-2xl space-y-4 shadow-2xs">
+        <div className="flex items-center gap-2 text-[var(--primary)] font-bold text-sm">
+          <Database className="w-5 h-5" />
+          <h3 className="text-base text-[var(--ink)] font-black">Exportar e Importar Cópia Completa (.JSON)</h3>
+        </div>
+        <p className="text-xs text-[var(--muted)] leading-relaxed">
+          Faça download do arquivo JSON contendo toda a estrutura cadastrada, colaboradores, cargos, tarefas e a <strong>conexão completa da planilha online (com Webhook e links do Google Sheets)</strong>. Ao importar este JSON em qualquer outro computador, a sincronização estará pronta para uso imediato.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <button
+            onClick={handleExportConfig}
+            className="px-4 py-2.5 bg-[var(--primary)] text-white text-xs font-bold rounded-xl hover:bg-[var(--primary-hover)] flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>Exportar Configurações JSON</span>
+          </button>
+
+          <label className="cursor-pointer px-4 py-2.5 border border-[var(--line)] text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-[var(--ink)] transition-colors">
+            <Upload className="w-4 h-4 text-[var(--muted)]" />
+            <span>Importar Configurações JSON</span>
+            <input type="file" accept="application/json" onChange={handleImportConfig} className="hidden" />
+          </label>
+        </div>
+      </div>
+
+      {/* Compact Themes Section (Placed after Export/Import) */}
       <div className="bg-[var(--paper)] border border-[var(--line)] p-5 rounded-2xl space-y-3 shadow-2xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-[var(--primary)] font-extrabold text-sm">
             <Palette className="w-4 h-4" />
-            <h3 className="text-sm text-[var(--ink)]">Personalização de Temas Visuais</h3>
+            <h3 className="text-sm font-black text-[var(--ink)]">Personalização de Temas Visuais</h3>
           </div>
           <span className="text-[11px] font-bold text-[var(--muted)]">
             {themeOptions.length} temas disponíveis
@@ -622,33 +649,6 @@ export const SettingsView: React.FC = () => {
             </button>
           </div>
         )}
-      </div>
-
-      {/* Export & Import Backup Section (JSON) */}
-      <div className="bg-[var(--paper)] border border-[var(--line)] p-6 rounded-2xl space-y-4">
-        <div className="flex items-center gap-2 text-[var(--primary)] font-bold text-sm">
-          <Database className="w-5 h-5" />
-          <h3 className="text-base text-[var(--ink)]">Exportar e Importar Cópia Completa (.JSON)</h3>
-        </div>
-        <p className="text-xs text-[var(--muted)] leading-relaxed">
-          Faça download do arquivo JSON contendo toda a estrutura cadastrada, colaboradores, cargos, tarefas e a <strong>conexão completa da planilha online (com Webhook e links do Google Sheets)</strong>. Ao importar este JSON em qualquer outro computador, a sincronização estará pronta para uso imediato.
-        </p>
-
-        <div className="flex flex-wrap items-center gap-3 pt-2">
-          <button
-            onClick={handleExportConfig}
-            className="px-4 py-2.5 bg-[var(--primary)] text-white text-xs font-bold rounded-xl hover:bg-[var(--primary-hover)] flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
-          >
-            <Download className="w-4 h-4" />
-            <span>Exportar Configurações JSON</span>
-          </button>
-
-          <label className="cursor-pointer px-4 py-2.5 border border-[var(--line)] text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-[var(--ink)] transition-colors">
-            <Upload className="w-4 h-4 text-[var(--muted)]" />
-            <span>Importar Configurações JSON</span>
-            <input type="file" accept="application/json" onChange={handleImportConfig} className="hidden" />
-          </label>
-        </div>
       </div>
 
       {/* Clear Data & Online Spreadsheet Distinction Section */}

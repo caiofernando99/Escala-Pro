@@ -73,7 +73,7 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
   // Find break slot
   const getBreakSlot = (collabId: string) => {
     const slot = (state.breaks || []).find((b: any) => (dayIntervals[b.id] || []).includes(collabId));
-    return slot ? slot.time : 'Não definido';
+    return slot ? slot.time : 'Intervalos pendentes';
   };
 
   // Find task assigned

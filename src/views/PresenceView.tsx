@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { SearchInput } from '../components/SearchInput';
+import { MultiSelectFilter } from '../components/MultiSelectFilter';
 import {
   CheckCircle2,
   XCircle,
@@ -12,30 +13,37 @@ import {
   AlertCircle,
   Users,
   Tag,
+  Briefcase,
 } from 'lucide-react';
 import { getCollaboratorStatus, matchesSearch, formatDateBR } from '../utils/helpers';
 
 export const PresenceView: React.FC = () => {
   const { state, toggleAttendance, resetAttendance, setAbsenceReason } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTLFilter, setSelectedTLFilter] = useState<string>('todos');
-  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('todos');
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('todos');
+  const [selectedTLs, setSelectedTLs] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState<'cargo_categoria' | 'cargo' | 'categoria' | 'geral'>('cargo_categoria');
 
   const activeDate = state.selectedDate;
 
-  // Unique roles and categories for filter dropdowns
+  // Options for multi-select filters
+  const teamLeaders = state.teamLeaders || [];
+  const tlOptions = teamLeaders.map((tl) => ({ label: tl, value: tl }));
+
   const allRoles = Array.from(new Set(state.collaborators.map((c) => c.role).filter(Boolean)));
+  const roleOptions = allRoles.map((r) => ({ label: r, value: r }));
+
   const allCategories = Array.from(new Set(state.collaborators.map((c) => c.category).filter(Boolean)));
+  const categoryOptions = allCategories.map((cat) => ({ label: cat, value: cat }));
 
   // Classify all collaborators for current date
   const classified = state.collaborators
     .filter((col) => {
       const colTL = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
-      const matchesTL = selectedTLFilter === 'todos' || colTL === selectedTLFilter;
-      const matchesRole = selectedRoleFilter === 'todos' || col.role === selectedRoleFilter;
-      const matchesCategory = selectedCategoryFilter === 'todos' || col.category === selectedCategoryFilter;
+      const matchesTL = selectedTLs.length === 0 || selectedTLs.includes(colTL);
+      const matchesRole = selectedRoles.length === 0 || selectedRoles.includes(col.role);
+      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(col.category);
       return matchesTL && matchesRole && matchesCategory;
     })
     .map((col) => {
@@ -125,58 +133,34 @@ export const PresenceView: React.FC = () => {
           </div>
         </div>
 
-        {/* Filters Row */}
+        {/* Multi-Select Filters Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {/* TL Filter */}
-          <div className="flex items-center gap-1.5 bg-[var(--bg)] border border-[var(--line)] px-2.5 py-1 rounded-lg text-xs font-bold">
-            <span className="text-[var(--muted)] shrink-0 text-[11px]">Time/TL:</span>
-            <select
-              value={selectedTLFilter}
-              onChange={(e) => setSelectedTLFilter(e.target.value)}
-              className="w-full bg-transparent text-[var(--ink)] font-black focus:outline-none cursor-pointer py-0.5 truncate text-xs"
-            >
-              <option value="todos">Todos os Times</option>
-              {(state.teamLeaders || []).map((tl) => (
-                <option key={tl} value={tl}>
-                  {tl}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectFilter
+            label="Time / Líder (TL)"
+            options={tlOptions}
+            selectedValues={selectedTLs}
+            onChange={setSelectedTLs}
+            allLabel="Todos os Times"
+            icon={<Users className="w-3 h-3 text-[var(--primary)]" />}
+          />
 
-          {/* Role Filter */}
-          <div className="flex items-center gap-1.5 bg-[var(--bg)] border border-[var(--line)] px-2.5 py-1 rounded-lg text-xs font-bold">
-            <span className="text-[var(--muted)] shrink-0 text-[11px]">Cargo:</span>
-            <select
-              value={selectedRoleFilter}
-              onChange={(e) => setSelectedRoleFilter(e.target.value)}
-              className="w-full bg-transparent text-[var(--ink)] font-black focus:outline-none cursor-pointer py-0.5 truncate text-xs"
-            >
-              <option value="todos">Todos os Cargos ({allRoles.length})</option>
-              {allRoles.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectFilter
+            label="Cargo"
+            options={roleOptions}
+            selectedValues={selectedRoles}
+            onChange={setSelectedRoles}
+            allLabel="Todos os Cargos"
+            icon={<Briefcase className="w-3 h-3 text-[var(--primary)]" />}
+          />
 
-          {/* Category Filter */}
-          <div className="flex items-center gap-1.5 bg-[var(--bg)] border border-[var(--line)] px-2.5 py-1 rounded-lg text-xs font-bold">
-            <span className="text-[var(--muted)] shrink-0 text-[11px]">Categoria:</span>
-            <select
-              value={selectedCategoryFilter}
-              onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-              className="w-full bg-transparent text-[var(--ink)] font-black focus:outline-none cursor-pointer py-0.5 truncate text-xs"
-            >
-              <option value="todos">Todas as Categorias ({allCategories.length})</option>
-              {allCategories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectFilter
+            label="Categoria"
+            options={categoryOptions}
+            selectedValues={selectedCategories}
+            onChange={setSelectedCategories}
+            allLabel="Todas as Categorias"
+            icon={<Tag className="w-3 h-3 text-[var(--primary)]" />}
+          />
         </div>
       </div>
 
@@ -309,7 +293,7 @@ export const PresenceView: React.FC = () => {
                       </div>
 
                       <div className="divide-y divide-[var(--line)]">
-                        {list.map(({ collaborator }) => (
+                        {list.map(({ collaborator, isExtraPresence }) => (
                           <div key={collaborator.id} className="py-1.5 flex items-center justify-between gap-2 px-1">
                             <div className="flex items-center gap-2 min-w-0">
                               <input
@@ -319,7 +303,14 @@ export const PresenceView: React.FC = () => {
                                 className="w-3.5 h-3.5 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer shrink-0"
                               />
                               <div className="min-w-0">
-                                <div className="text-xs font-bold text-[var(--ink)] truncate">{collaborator.name}</div>
+                                <div className="text-xs font-bold text-[var(--ink)] truncate flex items-center gap-1.5">
+                                  <span>{collaborator.name}</span>
+                                  {isExtraPresence && (
+                                    <span className="text-[8.5px] font-black bg-purple-100 dark:bg-purple-950 text-purple-900 dark:text-purple-200 border border-purple-300 dark:border-purple-800 px-1.5 py-0.2 rounded-md shrink-0">
+                                      TROCA DE FOLGA
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="text-[9.5px] text-[var(--muted)] flex items-center gap-1">
                                   <span>Turma {collaborator.scale}</span>
                                   {collaborator.teamLeader && (
@@ -332,7 +323,7 @@ export const PresenceView: React.FC = () => {
                               </div>
                             </div>
                             <span className="text-[9.5px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.2 rounded-full shrink-0">
-                              Presente
+                              {isExtraPresence ? 'Presença Extra' : 'Presente'}
                             </span>
                           </div>
                         ))}
@@ -561,7 +552,7 @@ export const PresenceView: React.FC = () => {
                         <span className="font-bold text-red-950 dark:text-red-200">{collaborator.name}</span>
                         <button
                           onClick={() => toggleAttendance(collaborator.id, true)}
-                          className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
+                          className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
                         >
                           Marcar Presente
                         </button>
@@ -578,6 +569,49 @@ export const PresenceView: React.FC = () => {
                 })
               ) : (
                 <p className="text-xs text-[var(--muted)] italic p-2">Nenhuma falta não justificada registrada.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Folga Escala & Troca de Folga / Presença Extra */}
+          <div className="bg-[var(--paper)] border border-[var(--line)] p-5 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black uppercase tracking-wider text-[var(--ink)] flex items-center gap-2">
+                <Sun className="w-4 h-4 text-amber-500" />
+                <span>Folga de Escala ({scaleOffList.length})</span>
+              </h4>
+              <span className="text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
+                Troca de Folga
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--muted)] leading-normal">
+              Colaboradores de folga hoje. Se algum trabalhou em dia de folga (troca/extra), clique em <strong>Adicionar Presença Extra</strong>.
+            </p>
+
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {scaleOffList.length > 0 ? (
+                scaleOffList.map(({ collaborator }) => (
+                  <div
+                    key={collaborator.id}
+                    className="p-2.5 bg-[var(--bg)] border border-[var(--line)] hover:border-purple-300 rounded-xl flex items-center justify-between text-xs transition-colors"
+                  >
+                    <div>
+                      <div className="font-extrabold text-[var(--ink)]">{collaborator.name}</div>
+                      <div className="text-[10px] text-[var(--muted)] font-medium">
+                        Turma {collaborator.scale} • {collaborator.role}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => toggleAttendance(collaborator.id, true)}
+                      className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0"
+                    >
+                      + Presença Extra
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-[var(--muted)] italic p-2">Nenhum colaborador de folga programada hoje.</p>
               )}
             </div>
           </div>

@@ -61,6 +61,7 @@ export interface CollaboratorDayStatus {
   absenceDetail?: ScheduledAbsence | null;
   isOffScale: boolean;
   isManualOverride: boolean;
+  isExtraPresence: boolean;
 }
 
 /**
@@ -71,45 +72,59 @@ export function getCollaboratorStatus(
   dateStr: string,
   state: AppState
 ): CollaboratorDayStatus {
-  // 1. Check if on scheduled vacation / leave / training
   const scheduledAbsence = getActiveAbsence(collaborator, dateStr);
+  const offScale = isScaleOff(state.calendar, dateStr, collaborator.scale);
+  const manual = state.attendance[dateStr]?.[collaborator.id];
+
+  // Manual presence override explicitly set by manager
+  if (manual !== undefined) {
+    if (manual === true) {
+      const isExtra = offScale || Boolean(scheduledAbsence);
+      return {
+        status: 'presente',
+        absenceDetail: scheduledAbsence,
+        isOffScale: offScale,
+        isManualOverride: true,
+        isExtraPresence: isExtra,
+      };
+    } else {
+      return {
+        status: 'ausente',
+        absenceDetail: scheduledAbsence,
+        isOffScale: offScale,
+        isManualOverride: true,
+        isExtraPresence: false,
+      };
+    }
+  }
+
+  // No manual override set
   if (scheduledAbsence) {
     return {
       status: scheduledAbsence.type,
       absenceDetail: scheduledAbsence,
-      isOffScale: isScaleOff(state.calendar, dateStr, collaborator.scale),
+      isOffScale: offScale,
       isManualOverride: false,
+      isExtraPresence: false,
     };
   }
 
-  // 2. Check scale off
-  const offScale = isScaleOff(state.calendar, dateStr, collaborator.scale);
   if (offScale) {
     return {
       status: 'folga',
       absenceDetail: null,
       isOffScale: true,
       isManualOverride: false,
+      isExtraPresence: false,
     };
   }
 
-  // 3. Check manual presence override
-  const manual = state.attendance[dateStr]?.[collaborator.id];
-  if (manual !== undefined) {
-    return {
-      status: manual ? 'presente' : 'ausente',
-      absenceDetail: null,
-      isOffScale: false,
-      isManualOverride: true,
-    };
-  }
-
-  // Default: Scheduled to work and assumed present
   return {
     status: 'presente',
     absenceDetail: null,
     isOffScale: false,
     isManualOverride: false,
+    isExtraPresence: false,
   };
 }
 
