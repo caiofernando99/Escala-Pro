@@ -40,19 +40,74 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
     setOpenFaq(openFaq === index ? null : index);
   };
 
-  const appsScriptCode = `function doPost(e) {
+  const appsScriptCode = `function doGet(e) {
+  return ContentService.createTextOutput(
+    JSON.stringify({
+      status: "success",
+      service: "EscalaPro Google Apps Script Webhook",
+      message: "Webhook ativo e pronto para receber sincronizações da sua equipe!",
+      timestamp: new Date().toLocaleString("pt-BR")
+    })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
   try {
     var contents = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var timestamp = new Date().toLocaleString("pt-BR");
     
     // -------------------------------------------------------------
-    // 1. ABA DE ESCALA DIÁRIA (Colaboradores, Presença, Tarefa e Refeição)
+    // 1. ABA MESTRE DA EQUIPE (CRUD: Colaboradores, Cargos, Times e Dados)
     // -------------------------------------------------------------
-    var sheetEscala = ss.getSheetByName("Escala Diária") || ss.insertSheet("Escala Diária");
-    
-    // Cria os cabeçalhos se a aba estiver vazia
-    if (sheetEscala.getLastRow() === 0) {
+    var masterList = contents.collaboratorsMaster || contents.data;
+    if (masterList && masterList.length > 0) {
+      var sheetEquipe = ss.getSheetByName("Cadastro da Equipe") || ss.insertSheet("Cadastro da Equipe");
+      sheetEquipe.clear(); // Atualiza a lista completa para manter sincronizado com o CRUD do EscalaPro
+      
+      sheetEquipe.appendRow([
+        "RE (Matrícula)", 
+        "Nome Completo", 
+        "LDAP / Login", 
+        "Setor / Operação", 
+        "Gestor Responsável", 
+        "Turno", 
+        "Team Leader / Time", 
+        "Escala", 
+        "Cargo", 
+        "Categoria", 
+        "Skills & Proficiências", 
+        "Status no Sistema",
+        "Última Atualização"
+      ]);
+      sheetEquipe.getRange(1, 1, 1, 13).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
+      
+      masterList.forEach(function(col) {
+        sheetEquipe.appendRow([
+          col.registration || "",
+          col.name || "",
+          col.login || "",
+          col.sector || contents.sector || "",
+          col.manager || contents.manager || "",
+          col.shift || contents.shift || "",
+          col.teamLeader || "",
+          col.scale || "",
+          col.role || "",
+          col.category || "",
+          col.skills || "Nenhuma",
+          col.status || "Ativo",
+          timestamp
+        ]);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 2. ABA DE ESCALA DIÁRIA (Alocação do Dia, Tarefas e Refeição)
+    // -------------------------------------------------------------
+    if (contents.data && contents.data.length > 0) {
+      var sheetEscala = ss.getSheetByName("Escala Diária") || ss.insertSheet("Escala Diária");
+      sheetEscala.clear(); // Substitui os dados da escala do dia garantindo sem duplicidades
+      
       sheetEscala.appendRow([
         "Data da Escala", 
         "RE (Matrícula)", 
@@ -70,11 +125,8 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
         "Horário de Intervalo",
         "Última Atualização"
       ]);
-      sheetEscala.getRange(1, 1, 1, 15).setFontWeight("bold").setBackground("#dbeafe");
-    }
-    
-    // Adiciona os registros dos colaboradores no dia
-    if (contents.data && contents.data.length > 0) {
+      sheetEscala.getRange(1, 1, 1, 15).setFontWeight("bold").setBackground("#3b82f6").setFontColor("#ffffff");
+      
       contents.data.forEach(function(item) {
         sheetEscala.appendRow([
           item.date || contents.date || "",
@@ -95,25 +147,23 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
         ]);
       });
     }
-    
+
     // -------------------------------------------------------------
-    // 2. ABA SEPARADA: RELATÓRIO DE ABSENTEÍSMO E FALTAS
+    // 3. ABA DE REGISTRO E HISTÓRICO DE ABSENTEÍSMO / FALTAS
     // -------------------------------------------------------------
     if (contents.reports) {
       var sheetReport = ss.getSheetByName("Relatório de Absenteísmo") || ss.insertSheet("Relatório de Absenteísmo");
       
-      // Cabeçalhos de resumo
       if (sheetReport.getLastRow() === 0) {
-        sheetReport.appendRow(["RELATÓRIO DIÁRIO DE ABSENTEÍSMO E OCORRÊNCIAS"]);
+        sheetReport.appendRow(["HISTÓRICO PERMANENTE DE REGISTROS DE ABSENTEÍSMO E OCORRÊNCIAS"]);
         sheetReport.getRange("A1").setFontWeight("bold").setFontSize(13);
         sheetReport.appendRow([
-          "Data", "Total Equipe", "Presentes", "Faltas/Ausentes", "Férias", 
-          "Licença/Treinamento", "Folgas", "Taxa de Absenteísmo", "Observações Gerais", "Gerado Em"
+          "Data", "Total Equipe", "Presentes", "Faltas / Ausentes", "Férias", 
+          "Licença / Treinamento", "Folgas", "Taxa de Absenteísmo (%)", "Observações Gerais", "Gerado Em"
         ]);
         sheetReport.getRange(2, 1, 1, 10).setFontWeight("bold").setBackground("#fef3c7");
       }
       
-      // Linha de resumo do relatório
       var r = contents.reports;
       sheetReport.appendRow([
         r.date || "",
@@ -128,10 +178,9 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
         r.generatedAt || timestamp
       ]);
       
-      // Adiciona detalhamento de ausências/ocorrências se houver
       if (r.absencesAndOccurrences && r.absencesAndOccurrences.length > 0) {
         sheetReport.appendRow([]);
-        sheetReport.appendRow(["DETALHAMENTO DAS AUSÊNCIAS E OCORRÊNCIAS (" + (r.date || "") + ")"]);
+        sheetReport.appendRow(["DETALHAMENTO DE AUSÊNCIAS E OCORRÊNCIAS (" + (r.date || "") + ")"]);
         sheetReport.getRange(sheetReport.getLastRow(), 1).setFontWeight("bold");
         
         sheetReport.appendRow([
@@ -157,15 +206,15 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
         sheetReport.appendRow([]); // Linha separadora
       }
     }
-    
+
     // -------------------------------------------------------------
-    // 3. ABA DE CONFIGURAÇÕES DO SISTEMA (Parâmetros, Cargos e Estrutura)
+    // 4. ABA DE CONFIGURAÇÕES DO SISTEMA (Times, Parâmetros e Estrutura)
     // -------------------------------------------------------------
     if (contents.settings) {
       var sheetConfig = ss.getSheetByName("Configurações do Sistema") || ss.insertSheet("Configurações do Sistema");
-      sheetConfig.clear(); // Atualiza com os valores mais recentes
+      sheetConfig.clear();
       
-      sheetConfig.appendRow(["CONFIGURAÇÕES E ESTRUTURA DO SISTEMA - ESCALAPRO"]);
+      sheetConfig.appendRow(["CONFIGURAÇÕES DA OPERAÇÃO E DOS TIMES - ESCALAPRO"]);
       sheetConfig.getRange("A1").setFontWeight("bold").setFontSize(13);
       
       sheetConfig.appendRow(["Parâmetro", "Valor Configurado"]);
@@ -184,27 +233,35 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
       sheetConfig.appendRow(["Última Sincronização", timestamp]);
       
       sheetConfig.appendRow([]);
-      sheetConfig.appendRow(["Estrutura de Cadastro", "Itens Cadastrados"]);
+      sheetConfig.appendRow(["Estrutura Cadastrada", "Valores"]);
       sheetConfig.getRange(10, 1, 1, 2).setFontWeight("bold").setBackground("#f3f4f6");
       sheetConfig.appendRow(["Cargos", (contents.settings.roles || []).join(", ")]);
       sheetConfig.appendRow(["Categorias", (contents.settings.categories || []).join(", ")]);
       sheetConfig.appendRow(["Escalas / Turmas", (contents.settings.scales || []).join(", ")]);
-      sheetConfig.appendRow(["Líderes de Equipe", (contents.settings.teamLeaders || []).join(", ")]);
+      sheetConfig.appendRow(["Líderes de Equipe / Times", (contents.settings.teamLeaders || []).join(", ")]);
       sheetConfig.appendRow(["Motivos de Ausência", (contents.settings.reasons || []).join(", ")]);
       
       sheetConfig.appendRow([]);
       sheetConfig.appendRow(["Tarefas Operacionais Cadastradas"]);
       sheetConfig.getRange(17, 1).setFontWeight("bold");
-      sheetConfig.appendRow(["ID da Tarefa", "Nome da Tarefa", "Membros Alocados"]);
+      sheetConfig.appendRow(["ID", "Nome da Tarefa", "Cargos Perm.", "Categorias Perm.", "Integrantes Alocados"]);
+      sheetConfig.getRange(18, 1, 1, 5).setFontWeight("bold").setBackground("#e2e8f0");
       if (contents.settings.tasks && contents.settings.tasks.length > 0) {
         contents.settings.tasks.forEach(function(t) {
-          sheetConfig.appendRow([t.id, t.name, t.membersCount || 0]);
+          sheetConfig.appendRow([
+            t.id, 
+            t.name, 
+            (t.allowedRoles || []).join(", ") || "Todos", 
+            (t.allowedCategories || []).join(", ") || "Todas", 
+            t.membersCount || 0
+          ]);
         });
       }
       
       sheetConfig.appendRow([]);
       sheetConfig.appendRow(["Horários de Refeição e Intervalo"]);
       sheetConfig.appendRow(["ID do Slot", "Horário de Intervalo", "Turno"]);
+      sheetConfig.getRange(sheetConfig.getLastRow(), 1, 1, 3).setFontWeight("bold").setBackground("#e2e8f0");
       if (contents.settings.breaks && contents.settings.breaks.length > 0) {
         contents.settings.breaks.forEach(function(b) {
           sheetConfig.appendRow([b.id, b.time, b.shift || "Geral"]);
@@ -213,7 +270,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
     }
     
     return ContentService.createTextOutput(
-      JSON.stringify({ status: "success", message: "Escala e Configurações sincronizadas no Google Sheets!" })
+      JSON.stringify({ status: "success", message: "Cadastro da Equipe, Escala, Registro de Absenteísmo e Configurações atualizados!" })
     ).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(

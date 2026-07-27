@@ -1249,6 +1249,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         manager: state.manager,
         shift: state.teamShift,
         collaboratorsCount: state.collaborators.length,
+        // Master CRUD Collaborators List
+        collaboratorsMaster: state.collaborators.map((c) => ({
+          id: c.id,
+          registration: c.registration || '',
+          name: c.name || '',
+          login: c.login || '',
+          sector: state.sector || '',
+          manager: state.manager || '',
+          shift: c.shift || state.teamShift || '',
+          teamLeader: c.teamLeader || state.defaultTeamLeader || 'Sem Time',
+          scale: c.scale || '',
+          role: c.role || '',
+          category: c.category || '',
+          skills: (c.skills || []).map((s) => `${s.skillName} (${s.level})`).join(', ') || 'Nenhuma',
+          status: c.status || 'Ativo',
+        })),
         data: state.collaborators.map((c) => {
           const st = getCollaboratorStatus(c, state.selectedDate, state);
           const taskName = state.tasks.find((t) => t.members.includes(c.id))?.name || 'Não Dimensionado';
