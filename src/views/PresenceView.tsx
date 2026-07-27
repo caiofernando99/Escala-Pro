@@ -273,28 +273,29 @@ export const PresenceView: React.FC = () => {
 
           {/* RENDER BY SELECTED GROUPING MODE */}
           {groupBy === 'cargo_categoria' && (
-            <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
               {Object.keys(groupedByRoleCategory).length > 0 ? (
                 Object.entries(groupedByRoleCategory).map(([groupKey, rawList]) => {
                   const list = rawList as typeof filteredPresent;
                   const [rName, cName] = groupKey.split(' • ');
                   return (
-                    <div key={groupKey} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-2.5 space-y-1.5 shadow-2xs">
-                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-1.5">
+                    <div key={groupKey} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-3 space-y-2 shadow-2xs hover:border-[var(--primary-border)] transition-all flex flex-col justify-between">
+                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
                         <div className="flex items-center gap-1.5 min-w-0 pr-1">
                           <Users className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
                           <h5 className="text-xs font-black text-[var(--ink)] uppercase tracking-wide truncate">
                             {rName} <span className="text-[var(--muted)] font-bold font-mono">/</span> <span className="text-purple-600 dark:text-purple-400 font-extrabold">{cName}</span>
                           </h5>
                         </div>
-                        <span className="text-[10px] font-black bg-[var(--primary-soft)] text-[var(--primary)] px-2 py-0.2 rounded-full border border-[var(--primary-border)] shrink-0">
-                          {list.length} Presentes
+                        <span className="text-[10px] font-black bg-[var(--primary-soft)] text-[var(--primary)] px-2 py-0.5 rounded-full border border-[var(--primary-border)] shrink-0">
+                          {list.length} {list.length === 1 ? 'Presente' : 'Presentes'}
                         </span>
                       </div>
 
-                      <div className="divide-y divide-[var(--line)]">
+                      {/* Internal Scroll Container inside card */}
+                      <div className="divide-y divide-[var(--line)] max-h-56 overflow-y-auto pr-1">
                         {list.map(({ collaborator, isExtraPresence }) => (
-                          <div key={collaborator.id} className="py-1.5 flex items-center justify-between gap-2 px-1">
+                          <div key={collaborator.id} className="py-2 flex items-center justify-between gap-2 px-1">
                             <div className="flex items-center gap-2 min-w-0">
                               <input
                                 type="checkbox"
@@ -307,7 +308,7 @@ export const PresenceView: React.FC = () => {
                                   <span>{collaborator.name}</span>
                                   {isExtraPresence && (
                                     <span className="text-[8.5px] font-black bg-purple-100 dark:bg-purple-950 text-purple-900 dark:text-purple-200 border border-purple-300 dark:border-purple-800 px-1.5 py-0.2 rounded-md shrink-0">
-                                      TROCA DE FOLGA
+                                      TROCA
                                     </span>
                                   )}
                                 </div>
@@ -323,7 +324,7 @@ export const PresenceView: React.FC = () => {
                               </div>
                             </div>
                             <span className="text-[9.5px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.2 rounded-full shrink-0">
-                              {isExtraPresence ? 'Presença Extra' : 'Presente'}
+                              {isExtraPresence ? 'Extra' : 'Presente'}
                             </span>
                           </div>
                         ))}
@@ -332,42 +333,42 @@ export const PresenceView: React.FC = () => {
                   );
                 })
               ) : (
-                <p className="p-8 text-center text-xs text-[var(--muted)]">
+                <p className="p-8 text-center text-xs text-[var(--muted)] col-span-full">
                   Nenhum colaborador presente para os filtros selecionados.
                 </p>
               )}
             </div>
           )}
           {groupBy === 'geral' && (
-            <div className="divide-y divide-[var(--line)] max-h-[520px] overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 w-full max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
               {filteredPresent.length > 0 ? (
-                filteredPresent.map(({ collaborator }) => (
-                  <div key={collaborator.id} className="py-2.5 flex items-center justify-between gap-3 hover:bg-[var(--bg)] px-2 rounded-lg">
-                    <div className="flex items-center gap-3">
+                filteredPresent.map(({ collaborator, isExtraPresence }) => (
+                  <div key={collaborator.id} className="p-3 bg-[var(--bg)] border border-[var(--line)] hover:border-[var(--primary-border)] rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <input
                         type="checkbox"
                         checked={true}
                         onChange={(e) => toggleAttendance(collaborator.id, e.target.checked)}
-                        className="w-4 h-4 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer"
+                        className="w-4 h-4 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer shrink-0"
                       />
-                      <div>
-                        <div className="text-xs font-bold text-[var(--ink)]">{collaborator.name}</div>
-                        <div className="text-[10px] text-[var(--muted)] flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-blue-600 dark:text-blue-400">{collaborator.role}</span>
+                      <div className="min-w-0">
+                        <div className="text-xs font-black text-[var(--ink)] truncate">{collaborator.name}</div>
+                        <div className="text-[10px] text-[var(--muted)] flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-[var(--primary)]">{collaborator.role}</span>
                           <span>•</span>
-                          <span className="font-semibold text-purple-600 dark:text-purple-400">{collaborator.category}</span>
+                          <span className="font-bold text-purple-600 dark:text-purple-400">{collaborator.category}</span>
                           <span>•</span>
                           <span className="font-semibold">Turma {collaborator.scale}</span>
                         </div>
                       </div>
                     </div>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full shrink-0">
-                      Confirmado
+                    <span className="text-[9.5px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full shrink-0">
+                      {isExtraPresence ? 'Extra' : 'Confirmado'}
                     </span>
                   </div>
                 ))
               ) : (
-                <p className="p-8 text-center text-xs text-[var(--muted)]">
+                <p className="p-8 text-center text-xs text-[var(--muted)] col-span-full">
                   Nenhum colaborador presente para os filtros aplicados.
                 </p>
               )}
@@ -376,43 +377,44 @@ export const PresenceView: React.FC = () => {
 
           {/* POR CARGO MODE */}
           {groupBy === 'cargo' && (
-            <div className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
               {Object.keys(groupedByRole).length > 0 ? (
                 Object.entries(groupedByRole).map(([roleName, rawList]) => {
                   const list = rawList as typeof filteredPresent;
                   return (
-                    <div key={roleName} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-3 space-y-2">
+                    <div key={roleName} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-3 space-y-2 shadow-2xs hover:border-[var(--primary-border)] transition-all flex flex-col justify-between">
                       <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
-                        <div className="flex items-center gap-2">
-                          <Users className="w-4 h-4 text-[var(--primary)]" />
-                          <h5 className="text-xs font-black text-[var(--ink)] uppercase tracking-wider">{roleName}</h5>
+                        <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                          <Users className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
+                          <h5 className="text-xs font-black text-[var(--ink)] uppercase tracking-wider truncate">{roleName}</h5>
                         </div>
-                        <span className="text-[10px] font-black bg-[var(--primary-soft)] text-[var(--primary)] px-2 py-0.5 rounded-full border border-[var(--primary-border)]">
-                          {list.length} Presentes
+                        <span className="text-[10px] font-black bg-[var(--primary-soft)] text-[var(--primary)] px-2 py-0.5 rounded-full border border-[var(--primary-border)] shrink-0">
+                          {list.length} {list.length === 1 ? 'Presente' : 'Presentes'}
                         </span>
                       </div>
 
-                      <div className="divide-y divide-[var(--line)]">
-                        {list.map(({ collaborator }) => (
-                          <div key={collaborator.id} className="py-2 flex items-center justify-between gap-3 px-1">
-                            <div className="flex items-center gap-2.5">
+                      {/* Internal Scroll Container inside card */}
+                      <div className="divide-y divide-[var(--line)] max-h-56 overflow-y-auto pr-1">
+                        {list.map(({ collaborator, isExtraPresence }) => (
+                          <div key={collaborator.id} className="py-2 flex items-center justify-between gap-2 px-1">
+                            <div className="flex items-center gap-2 min-w-0">
                               <input
                                 type="checkbox"
                                 checked={true}
                                 onChange={(e) => toggleAttendance(collaborator.id, e.target.checked)}
-                                className="w-4 h-4 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer"
+                                className="w-3.5 h-3.5 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer shrink-0"
                               />
-                              <div>
-                                <div className="text-xs font-bold text-[var(--ink)]">{collaborator.name}</div>
-                                <div className="text-[10px] text-[var(--muted)] flex items-center gap-1.5">
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-[var(--ink)] truncate">{collaborator.name}</div>
+                                <div className="text-[9.5px] text-[var(--muted)] flex items-center gap-1">
                                   <span className="text-purple-600 dark:text-purple-400 font-semibold">{collaborator.category}</span>
                                   <span>•</span>
                                   <span>Turma {collaborator.scale}</span>
                                 </div>
                               </div>
                             </div>
-                            <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full shrink-0">
-                              Presente
+                            <span className="text-[9.5px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.2 rounded-full shrink-0">
+                              {isExtraPresence ? 'Extra' : 'Presente'}
                             </span>
                           </div>
                         ))}
@@ -421,7 +423,7 @@ export const PresenceView: React.FC = () => {
                   );
                 })
               ) : (
-                <p className="p-8 text-center text-xs text-[var(--muted)]">
+                <p className="p-8 text-center text-xs text-[var(--muted)] col-span-full">
                   Nenhum colaborador presente para os filtros selecionados.
                 </p>
               )}
@@ -430,43 +432,44 @@ export const PresenceView: React.FC = () => {
 
           {/* POR CATEGORIA MODE */}
           {groupBy === 'categoria' && (
-            <div className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
               {Object.keys(groupedByCategory).length > 0 ? (
                 Object.entries(groupedByCategory).map(([categoryName, rawList]) => {
                   const list = rawList as typeof filteredPresent;
                   return (
-                    <div key={categoryName} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-3 space-y-2">
+                    <div key={categoryName} className="bg-[var(--bg)] border border-[var(--line)] rounded-xl p-3 space-y-2 shadow-2xs hover:border-[var(--primary-border)] transition-all flex flex-col justify-between">
                       <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
-                        <div className="flex items-center gap-2">
-                          <Tag className="w-4 h-4 text-purple-600" />
-                          <h5 className="text-xs font-black text-[var(--ink)] uppercase tracking-wider">{categoryName}</h5>
+                        <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                          <Tag className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                          <h5 className="text-xs font-black text-[var(--ink)] uppercase tracking-wider truncate">{categoryName}</h5>
                         </div>
-                        <span className="text-[10px] font-black bg-purple-100 text-purple-900 dark:bg-purple-950 dark:text-purple-200 px-2 py-0.5 rounded-full border border-purple-300">
-                          {list.length} Presentes
+                        <span className="text-[10px] font-black bg-purple-100 text-purple-900 dark:bg-purple-950 dark:text-purple-200 px-2 py-0.5 rounded-full border border-purple-300 shrink-0">
+                          {list.length} {list.length === 1 ? 'Presente' : 'Presentes'}
                         </span>
                       </div>
 
-                      <div className="divide-y divide-[var(--line)]">
-                        {list.map(({ collaborator }) => (
-                          <div key={collaborator.id} className="py-2 flex items-center justify-between gap-3 px-1">
-                            <div className="flex items-center gap-2.5">
+                      {/* Internal Scroll Container inside card */}
+                      <div className="divide-y divide-[var(--line)] max-h-56 overflow-y-auto pr-1">
+                        {list.map(({ collaborator, isExtraPresence }) => (
+                          <div key={collaborator.id} className="py-2 flex items-center justify-between gap-2 px-1">
+                            <div className="flex items-center gap-2 min-w-0">
                               <input
                                 type="checkbox"
                                 checked={true}
                                 onChange={(e) => toggleAttendance(collaborator.id, e.target.checked)}
-                                className="w-4 h-4 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer"
+                                className="w-3.5 h-3.5 text-[var(--primary)] rounded accent-[var(--primary)] cursor-pointer shrink-0"
                               />
-                              <div>
-                                <div className="text-xs font-bold text-[var(--ink)]">{collaborator.name}</div>
-                                <div className="text-[10px] text-[var(--muted)] flex items-center gap-1.5">
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-[var(--ink)] truncate">{collaborator.name}</div>
+                                <div className="text-[9.5px] text-[var(--muted)] flex items-center gap-1">
                                   <span className="text-blue-600 dark:text-blue-400 font-semibold">{collaborator.role}</span>
                                   <span>•</span>
                                   <span>Turma {collaborator.scale}</span>
                                 </div>
                               </div>
                             </div>
-                            <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full shrink-0">
-                              Presente
+                            <span className="text-[9.5px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.2 rounded-full shrink-0">
+                              {isExtraPresence ? 'Extra' : 'Presente'}
                             </span>
                           </div>
                         ))}
@@ -475,7 +478,7 @@ export const PresenceView: React.FC = () => {
                   );
                 })
               ) : (
-                <p className="p-8 text-center text-xs text-[var(--muted)]">
+                <p className="p-8 text-center text-xs text-[var(--muted)] col-span-full">
                   Nenhum colaborador presente para os filtros selecionados.
                 </p>
               )}

@@ -98,7 +98,7 @@ export const BreaksView: React.FC = () => {
     });
     const slotObj = state.breaks.find((b) => b.id === breakSlotId);
     showNotice(
-      `${selectedMemberIds.length} colaborador(es) alocado(s) para ${slotObj ? slotObj.time : 'Intervalos pendentes'}!`
+      `${selectedMemberIds.length} colaborador(es) dimensionado(s) para ${slotObj ? slotObj.time : 'Intervalos pendentes'}!`
     );
     setSelectedMemberIds([]);
   };
@@ -213,7 +213,7 @@ export const BreaksView: React.FC = () => {
                     </span>
                   </div>
                   <div className="text-base font-black my-0.5 text-[var(--primary)]">
-                    {count} <span className="text-[10px] font-semibold opacity-75 text-[var(--muted)]">alocado{count !== 1 ? 's' : ''}</span>
+                    {count} <span className="text-[10px] font-semibold opacity-75 text-[var(--muted)]">dimensionado{count !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
 

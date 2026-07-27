@@ -34,7 +34,10 @@ interface AppContextType {
   assignTask: (collaboratorId: string, taskId: string) => void;
   unassignTask: (collaboratorId: string) => void;
   clearAssignments: () => void;
+  clearTaskAssignments: (taskId: string) => void;
   autoAssign: () => void;
+  undo: () => boolean;
+  canUndo: boolean;
   moveBreakInterval: (collaboratorId: string, fromBreakId: string | null, toBreakId: string | null) => void;
   generateBreaks: () => void;
   addCatalogItem: (key: 'roles' | 'categories' | 'skills', item: string) => void;
@@ -116,6 +119,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return null;
   });
 
+  const undoStackRef = useRef<AppState[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+
+  const pushUndo = (prevState: AppState) => {
+    undoStackRef.current.push(prevState);
+    if (undoStackRef.current.length > 40) {
+      undoStackRef.current.shift();
+    }
+    setCanUndo(true);
+  };
+
+  const undo = (): boolean => {
+    if (undoStackRef.current.length === 0) {
+      showNotice('Nenhuma ação recente para desfazer.');
+      setCanUndo(false);
+      return false;
+    }
+    const previous = undoStackRef.current.pop()!;
+    setState(previous);
+    setCanUndo(undoStackRef.current.length > 0);
+    showNotice('Ação desfeita com sucesso! (Ctrl+Z)');
+    return true;
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        const activeEl = document.activeElement;
+        if (
+          activeEl &&
+          (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || (activeEl as HTMLElement).isContentEditable)
+        ) {
+          return;
+        }
+        e.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const showNotice = (msg: string, actionLabel?: string, onAction?: () => void) => {
     setNoticeState({ message: msg, actionLabel, onAction });
     setTimeout(() => {
@@ -177,14 +222,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotice('Sincronização com a Planilha Online desconectada. Seus dados locais continuam preservados.');
   };
 
-  // Save state to localStorage whenever state changes
+  // Save state to localStorage and broadcast live changes across tabs whenever state changes
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const jsonStr = JSON.stringify(state);
+      localStorage.setItem(STORAGE_KEY, jsonStr);
+
+      // Broadcast to any open Portal or Manager tab in real-time
+      if (typeof BroadcastChannel !== 'undefined') {
+        const channel = new BroadcastChannel('escalapro_live_channel');
+        channel.postMessage({ type: 'STATE_UPDATED', state });
+        channel.close();
+      }
     } catch (err) {
-      console.error('Failed to save state to localStorage', err);
+      console.error('Failed to save or broadcast state', err);
     }
   }, [state]);
+
+  // Listen for live updates from other tabs
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      bc = new BroadcastChannel('escalapro_live_channel');
+      bc.onmessage = (event) => {
+        if (event.data && event.data.type === 'STATE_UPDATED' && event.data.state) {
+          setState((prev) => {
+            // Only update if data is actually different to avoid render loops
+            if (JSON.stringify(prev) !== JSON.stringify(event.data.state)) {
+              return event.data.state;
+            }
+            return prev;
+          });
+        }
+      };
+    }
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed) {
+            setState(parsed);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+      if (bc) bc.close();
+    };
+  }, []);
 
   // Apply theme to document element
   useEffect(() => {
@@ -521,6 +612,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const assignTask = (collaboratorId: string, taskId: string) => {
     setState((prev) => {
+      pushUndo(prev);
       const updatedTasks = prev.tasks.map((t) => {
         const filtered = t.members.filter((m) => m !== collaboratorId);
         if (t.id === taskId) {
@@ -533,26 +625,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const unassignTask = (collaboratorId: string) => {
-    setState((prev) => ({
-      ...prev,
-      tasks: prev.tasks.map((t) => ({
-        ...t,
-        members: t.members.filter((m) => m !== collaboratorId),
-      })),
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        tasks: prev.tasks.map((t) => ({
+          ...t,
+          members: t.members.filter((m) => m !== collaboratorId),
+        })),
+      };
+    });
   };
 
   const clearAssignments = () => {
-    setState((prev) => ({
-      ...prev,
-      tasks: prev.tasks.map((t) => ({ ...t, members: [] })),
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        tasks: prev.tasks.map((t) => ({ ...t, members: [] })),
+      };
+    });
     showNotice('Dimensionamento de tarefas limpo.');
+  };
+
+  const clearTaskAssignments = (taskId: string) => {
+    const targetTask = state.tasks.find((t) => t.id === taskId);
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, members: [] } : t)),
+      };
+    });
+    showNotice(`Dimensionamento da tarefa "${targetTask?.name || ''}" foi limpo.`);
   };
 
   const autoAssign = () => {
     setState((prev) => {
       if (!prev.tasks.length) return prev;
+      pushUndo(prev);
       const activePeople = prev.collaborators.filter((c) => {
         // active if not on vacation/leave/training and not scale off
         const hasAbsence = (c.absences || []).some((a) => prev.selectedDate >= a.startDate && prev.selectedDate <= a.endDate);
@@ -563,20 +674,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return !off;
       });
 
+      // Filter only active tasks
+      const activeTasks = prev.tasks.filter((t) => t.active !== false);
+      if (!activeTasks.length) return prev;
+
       const sorted = [...activePeople].sort((a, b) => a.name.localeCompare(b.name));
-      const newTasks = prev.tasks.map((t) => ({ ...t, members: [] as string[] }));
+      const newTasks = prev.tasks.map((t) => ({ ...t, members: t.active === false ? [] : ([] as string[]) }));
 
       sorted.forEach((p, idx) => {
-        // Try matching task by role/category if set
+        // Try matching active task by role/category if set
         let matchedTaskIndex = newTasks.findIndex(
           (t) =>
+            t.active !== false &&
             (t.allowedRoles?.length ? t.allowedRoles.includes(p.role) : true) &&
             (t.allowedCategories?.length ? t.allowedCategories.includes(p.category) : true)
         );
         if (matchedTaskIndex === -1) {
-          matchedTaskIndex = idx % newTasks.length;
+          const activeIndices = newTasks
+            .map((t, index) => (t.active !== false ? index : -1))
+            .filter((i) => i !== -1);
+          matchedTaskIndex = activeIndices[idx % activeIndices.length];
         }
-        newTasks[matchedTaskIndex].members.push(p.id);
+        if (matchedTaskIndex !== -1 && newTasks[matchedTaskIndex]) {
+          newTasks[matchedTaskIndex].members.push(p.id);
+        }
       });
 
       return { ...prev, tasks: newTasks };
@@ -978,7 +1099,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     state.collaborators.forEach((col) => {
       const st = getCollaboratorStatus(col, activeDate, state);
-      const taskName = state.tasks.find((t) => t.members.includes(col.id))?.name || 'Não Alocado';
+      const taskName = state.tasks.find((t) => t.members.includes(col.id))?.name || 'Não Dimensionado';
       const dayInt = state.intervals[activeDate] || {};
       const breakSlot = state.breaks.find((b) => (dayInt[b.id] || []).includes(col.id))?.time || 'Sem Intervalo';
       const skillsStr = col.skills && Object.keys(col.skills).length > 0 ? Object.keys(col.skills).join(', ') : 'Nenhuma';
@@ -1086,7 +1207,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       state.collaborators.forEach((c) => {
         const statusInfo = getCollaboratorStatus(c, state.selectedDate, state);
-        const taskName = state.tasks.find((t) => t.members.includes(c.id))?.name || 'Não Alocado';
+        const taskName = state.tasks.find((t) => t.members.includes(c.id))?.name || 'Não Dimensionado';
         const reason = dayReport.absenceReasons?.[c.id] || '';
         const occurrence = dayReport.occurrences?.[c.id] || '';
 
@@ -1130,7 +1251,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         collaboratorsCount: state.collaborators.length,
         data: state.collaborators.map((c) => {
           const st = getCollaboratorStatus(c, state.selectedDate, state);
-          const taskName = state.tasks.find((t) => t.members.includes(c.id))?.name || 'Não Alocado';
+          const taskName = state.tasks.find((t) => t.members.includes(c.id))?.name || 'Não Dimensionado';
           const dayInt = state.intervals[state.selectedDate] || {};
           const breakSlot = state.breaks.find((b) => (dayInt[b.id] || []).includes(c.id))?.time || 'Sem Intervalo';
           return {
@@ -1226,6 +1347,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err) {
       console.warn('Sincronização com Google Sheets não pôde ser concluída:', err);
       
+      const detailedError = 'Falha ao conectar com o Google Apps Script. Verifique se no Apps Script a opção "Quem tem acesso" foi configurada como "Qualquer pessoa" e se o link termina em "/exec".';
+
       setState((prev) => ({
         ...prev,
         onlineSpreadsheet: prev.onlineSpreadsheet
@@ -1233,13 +1356,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               ...prev.onlineSpreadsheet,
               syncStatus: 'error',
               lastSyncedAt: undefined, // Clear synced status so system reverts to local storage display
-              lastError: 'Falha ao conectar com o endpoint do Google Apps Script.',
+              lastError: detailedError,
             }
           : null,
       }));
 
       if (!isAutoSync) {
-        showNotice('Falha na comunicação com a planilha online. Verifique a URL do Web App e permissões de acesso (Qualquer Pessoa). Exibindo apenas Armazenamento Local.');
+        showNotice(detailedError);
       }
       return false;
     }
@@ -1309,7 +1432,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         assignTask,
         unassignTask,
         clearAssignments,
+        clearTaskAssignments,
         autoAssign,
+        undo,
+        canUndo,
         moveBreakInterval,
         generateBreaks,
         addCatalogItem,

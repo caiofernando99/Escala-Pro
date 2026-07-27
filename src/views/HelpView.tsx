@@ -32,7 +32,7 @@ interface HelpViewProps {
 }
 
 export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
-  const { state, generateTemplateSpreadsheet, exportLocalSpreadsheet, exportTeamRosterSpreadsheet, showNotice } = useApp();
+  const { state, generateTemplateSpreadsheet, exportLocalSpreadsheet, exportTeamRosterSpreadsheet, showNotice, syncToOnlineSpreadsheet } = useApp();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [copiedScript, setCopiedScript] = useState(false);
 
@@ -509,6 +509,88 @@ export const HelpView: React.FC<HelpViewProps> = ({ onOpenTutorial }) => {
                   <strong>Pronto! Integração Concluída!</strong> Agora, sempre que você clicar no botão verde <i>"Atualizar Dados na Planilha Online"</i> na tela de Compartilhar ou no topo do aplicativo, os dados serão gravados em tempo real na sua planilha no Google Sheets!
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* CRITICAL TROUBLESHOOTING BOX FOR GOOGLE SHEETS & WEBHOOK */}
+          <div className="bg-amber-50/80 dark:bg-amber-950/30 border-2 border-amber-400 dark:border-amber-700/60 p-6 rounded-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shadow-xs shrink-0">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-base font-black text-amber-950 dark:text-amber-100 uppercase tracking-tight">
+                  Solução de Problemas: Por que a minha planilha não está atualizando?
+                </h4>
+                <p className="text-xs text-amber-800 dark:text-amber-300 font-semibold">
+                  Se você seguiu o passo a passo mas a planilha ainda não recebeu as alterações, verifique estes 3 pontos essenciais:
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+              <div className="bg-[var(--paper)] border border-amber-300 dark:border-amber-800 p-4 rounded-xl space-y-2">
+                <div className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-mono flex items-center justify-center text-[11px]">1</span>
+                  <span>"Quem Tem Acesso" = Qualquer Pessoa</span>
+                </div>
+                <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+                  No Google Apps Script, ao clicar em <strong>Implantar ➔ Nova Implantação</strong>, o campo <strong>"Quem tem acesso" (Who has access)</strong> DEVE ser configurado obrigatoriamente como <strong>"Qualquer pessoa" (Anyone)</strong>. Se mantido como "Apenas eu", o Google bloqueia os acessos externos e a planilha não atualiza.
+                </p>
+              </div>
+
+              <div className="bg-[var(--paper)] border border-amber-300 dark:border-amber-800 p-4 rounded-xl space-y-2">
+                <div className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-mono flex items-center justify-center text-[11px]">2</span>
+                  <span>URL Correta no Campo Webhook</span>
+                </div>
+                <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+                  A URL do Webhook DEVE iniciar com <code className="bg-[var(--bg)] px-1 rounded font-mono font-bold text-[10px]">https://script.google.com/macros/s/.../exec</code> (o link do Web App) e NÃO com <code className="bg-[var(--bg)] px-1 rounded font-mono font-bold text-[10px]">docs.google.com/spreadsheets/d/...</code> (que é a página da planilha).
+                </p>
+              </div>
+
+              <div className="bg-[var(--paper)] border border-amber-300 dark:border-amber-800 p-4 rounded-xl space-y-2">
+                <div className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-mono flex items-center justify-center text-[11px]">3</span>
+                  <span>Autorização do Google Concluída</span>
+                </div>
+                <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+                  Ao implantar pela 1ª vez, o Google exige que você confirme as permissões do script. Clique em <i>"Autorizar Acesso"</i> ➔ selecione sua conta do Google ➔ clique em <i>"Avançado" (Advanced)</i> e depois em <i>"Acessar projeto (não seguro)"</i>.
+                </p>
+              </div>
+            </div>
+
+            {/* Live Webhook Tester inside Help View */}
+            <div className="bg-[var(--paper)] border border-amber-300 dark:border-amber-800/80 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3">
+              <div className="space-y-0.5">
+                <div className="text-xs font-black text-[var(--ink)] flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-600" />
+                  <span>Testar Conexão com Google Sheets Agora</span>
+                </div>
+                <p className="text-[11px] text-[var(--muted)]">
+                  {state.onlineSpreadsheet?.webhookUrl
+                    ? `Planilha atual configurada: "${state.onlineSpreadsheet.name}" (${state.onlineSpreadsheet.syncStatus === 'success' ? 'Online' : 'Pendente/Aviso'})`
+                    : 'Nenhuma URL de Webhook salva no momento. Configure em Conectar Planilha Online.'}
+                </p>
+              </div>
+
+              <button
+                onClick={async () => {
+                  if (!state.onlineSpreadsheet?.webhookUrl) {
+                    showNotice('Você precisa informar a URL do Webhook do Apps Script antes de testar. Clique em "Conectar Planilha Online".');
+                    return;
+                  }
+                  showNotice('Testando envio de dados para o Google Sheets...');
+                  const ok = await syncToOnlineSpreadsheet();
+                  if (ok) {
+                    showNotice('Sincronização enviada com sucesso ao Google Sheets!');
+                  }
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Testar Envio p/ Planilha</span>
+              </button>
             </div>
           </div>
         </div>

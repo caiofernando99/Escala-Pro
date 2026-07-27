@@ -174,26 +174,26 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
 
   return (
     <div className="space-y-3 animate-in fade-in duration-200">
-      {/* INTERACTIVE EMPLOYEE PORTAL LINK BANNER */}
-      <div className="no-print bg-gradient-to-r from-[var(--sidebar-bg)] via-[var(--primary)] to-[var(--sidebar-bg)] text-white p-3 rounded-xl shadow-2xs border border-[var(--primary-border)] flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* SHARE LINK & WHATSAPP BANNER */}
+      <div className="no-print bg-gradient-to-r from-[var(--sidebar-bg)] via-[var(--primary)] to-[var(--sidebar-bg)] text-white p-3.5 rounded-xl shadow-2xs border border-[var(--primary-border)] flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="space-y-0.5">
           <div className="flex items-center gap-1.5 text-white/90 font-black text-[10px] uppercase tracking-wider">
-            <Smartphone className="w-3.5 h-3.5 text-white" />
-            <span>Compartilhamento da Escala & Briefing</span>
+            <Share2 className="w-3.5 h-3.5 text-white" />
+            <span>Compartilhamento da Escala & Transmissão</span>
           </div>
-          <h3 className="text-sm font-black text-white leading-tight">Portal do Colaborador & Slide de Briefing</h3>
+          <h3 className="text-sm font-black text-white leading-tight">Envio Rápido para a Equipe</h3>
           <p className="text-[11px] text-white/80 font-medium max-w-xl">
-            Gere slides para apresentação no briefing diário ou compartilhe o link interativo diretamente com a equipe.
+            Copie o link interativo do dia ou o texto formatado para envio direto via WhatsApp, Slack e e-mail.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
-            onClick={() => onNavigate?.('briefing')}
-            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors border border-amber-400 cursor-pointer"
+            onClick={() => handleCopyText()}
+            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
-            <Presentation className="w-3.5 h-3.5 text-slate-950" />
-            <span>Ver Slide de Briefing (TV 16:9)</span>
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copied ? 'Copiado para WhatsApp!' : 'Copiar Texto para WhatsApp'}</span>
           </button>
 
           <button
@@ -201,27 +201,10 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
             className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-black rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors border border-white/30 cursor-pointer"
           >
             {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copiedLink ? 'Link Copiado!' : 'Copiar Link'}</span>
-          </button>
-
-          <button
-            onClick={() => setShowPortal(true)}
-            className="px-3 py-1.5 bg-white text-[var(--ink)] hover:bg-white/90 text-xs font-black rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-[var(--primary)]" />
-            <span>Abrir Portal</span>
+            <span>{copiedLink ? 'Link Copiado!' : 'Copiar Link do Portal'}</span>
           </button>
         </div>
       </div>
-
-      {/* Interactive Portal Modal */}
-      {showPortal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md overflow-y-auto flex items-start justify-center p-4 md:p-8 animate-in fade-in duration-200">
-          <div className="w-full max-w-6xl">
-            <InteractiveEmployeePortal onClose={() => setShowPortal(false)} />
-          </div>
-        </div>
-      )}
 
       {/* Connect Spreadsheet Modal */}
       <ConnectSpreadsheetModal
@@ -247,15 +230,6 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            onClick={() => onNavigate?.('briefing')}
-            className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black rounded-lg flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-            title="Ver slide de briefing em tela cheia 16:9"
-          >
-            <Presentation className="w-3.5 h-3.5" />
-            <span>Slide Briefing 16:9</span>
-          </button>
-
           <SearchInput
             value={searchTerm}
             onChange={setSearchTerm}

@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { EscalaProLogo } from '../components/EscalaProLogo';
 import {
   Calendar,
   Clock,
@@ -298,8 +297,7 @@ export const BriefingView: React.FC = () => {
           {/* SLIDE HEADER: Essential operational header with custom branding */}
           <div className="flex items-center justify-between border-b-2 border-[var(--line)] pb-3 z-10 shrink-0">
             <div className="flex items-center gap-3">
-              <EscalaProLogo size="md" variant="light" />
-              <div className="border-l-2 border-[var(--line)] pl-3">
+              <div>
                 <h1 className="text-xl sm:text-2xl font-black text-[var(--ink)] tracking-tight leading-none uppercase">
                   {customBranding || state.teamName || 'OPERAÇÃO LOGÍSTICA'}
                 </h1>

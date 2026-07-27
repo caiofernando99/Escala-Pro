@@ -11,16 +11,40 @@ import {
   Users,
   ChevronDown,
   Sparkles,
+  Undo2,
+  Compass,
+  Eye,
+  EyeOff,
+  Trash2,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Layers,
 } from 'lucide-react';
 import { matchesSearch, isScaleOff, getCollaboratorStatus } from '../utils/helpers';
 import { Task, Collaborator } from '../types';
 
 export const AssignmentView: React.FC = () => {
-  const { state, assignTask, unassignTask, clearAssignments, autoAssign } = useApp();
+  const {
+    state,
+    assignTask,
+    unassignTask,
+    clearAssignments,
+    clearTaskAssignments,
+    autoAssign,
+    updateTask,
+    undo,
+    canUndo,
+  } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [showInactiveTasks, setShowInactiveTasks] = useState(false);
+
+  // Guided Wizard Modal State
+  const [showGuidedWizard, setShowGuidedWizard] = useState(false);
+  const [wizardStep, setWizardStep] = useState(0);
 
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
   const [popoverState, setPopoverState] = useState<{
@@ -32,7 +56,7 @@ export const AssignmentView: React.FC = () => {
 
   const activeDate = state.selectedDate;
 
-  // Active present people (includes manual presence overrides e.g. troca de folga)
+  // Active present people today
   const presentPeople = state.collaborators.filter((c) => {
     const statusInfo = getCollaboratorStatus(c, activeDate, state);
     return statusInfo.status === 'presente';
@@ -48,6 +72,10 @@ export const AssignmentView: React.FC = () => {
 
   const assignedSet = new Set(state.tasks.flatMap((t) => t.members));
   const unassignedPeople = filteredPeople.filter((p) => !assignedSet.has(p.id));
+
+  // Active tasks vs all tasks
+  const activeTasksList = state.tasks.filter((t) => t.active !== false);
+  const displayTasks = showInactiveTasks ? state.tasks : activeTasksList;
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('text/plain', id);
@@ -109,7 +137,7 @@ export const AssignmentView: React.FC = () => {
     const recommended: Task[] = [];
     const others: Task[] = [];
 
-    state.tasks.forEach((task) => {
+    activeTasksList.forEach((task) => {
       const hasRoleRestriction = (task.allowedRoles || []).length > 0;
       const hasCatRestriction = (task.allowedCategories || []).length > 0;
 
@@ -128,25 +156,60 @@ export const AssignmentView: React.FC = () => {
 
   const popoverTasks = selectedCol ? getCategorizedTasks(selectedCol) : { recommended: [], others: [] };
 
+  // Current wizard task
+  const currentWizardTask = activeTasksList[wizardStep] || activeTasksList[0];
+
   return (
     <div className="space-y-2.5 animate-in fade-in duration-200">
       {/* Top Header & Filter Bar */}
       <div className="bg-[var(--paper)] p-3 rounded-xl border border-[var(--line)] space-y-2.5 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--line)] pb-2">
           <div>
-            <h3 className="text-sm font-black text-[var(--ink)] leading-tight">Dimensionamento de Tarefas</h3>
+            <h3 className="text-sm font-black text-[var(--ink)] leading-tight flex items-center gap-2">
+              <span>Dimensionamento de Tarefas</span>
+              <span className="text-[10px] font-bold bg-[var(--primary-soft)] text-[var(--primary)] px-2 py-0.5 rounded-full border border-[var(--primary-border)]">
+                {activeTasksList.length} ativas
+              </span>
+            </h3>
             <p className="text-[11px] text-[var(--muted)]">
-              Clique no colaborador para abrir o menu contextual de tarefas ou arraste direto para o card.
+              Atribua colaboradores às tarefas operacionais. Desative tarefas que não serão executadas hoje.
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => undo()}
+              disabled={!canUndo}
+              className={`px-2.5 py-1 border text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer transition-colors ${
+                canUndo
+                  ? 'bg-[var(--paper)] hover:bg-[var(--bg)] border-[var(--line)] text-[var(--ink)]'
+                  : 'opacity-40 cursor-not-allowed border-[var(--line)] text-[var(--muted)]'
+              }`}
+              title="Desfazer última alteração (Ctrl+Z)"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+              <span>Desfazer (Ctrl+Z)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setWizardStep(0);
+                setShowGuidedWizard(true);
+              }}
+              className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-lg flex items-center gap-1 shadow-2xs cursor-pointer transition-colors border border-amber-400"
+              title="Abrir assistente passo a passo por tarefa"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Modo Guiado</span>
+            </button>
+
             <button
               onClick={clearAssignments}
               className="px-2.5 py-1 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-[var(--bg)] text-[var(--ink)] cursor-pointer"
             >
-              Limpar
+              Limpar Tudo
             </button>
+
             <button
               onClick={autoAssign}
               className="px-3 py-1 bg-[var(--primary)] text-white text-xs font-black rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1 shadow-2xs cursor-pointer"
@@ -163,7 +226,7 @@ export const AssignmentView: React.FC = () => {
             value={searchTerm}
             onChange={setSearchTerm}
             placeholder="Pesquisar colaborador..."
-            className="w-full sm:w-52"
+            className="w-full sm:w-48"
           />
 
           <div className="flex items-center gap-1">
@@ -198,6 +261,16 @@ export const AssignmentView: React.FC = () => {
             </select>
           </div>
 
+          <label className="flex items-center gap-1.5 px-2 py-0.5 bg-[var(--bg)] border border-[var(--line)] rounded-lg font-bold text-[11px] text-[var(--ink)] cursor-pointer hover:border-[var(--primary-border)] ml-auto">
+            <input
+              type="checkbox"
+              checked={showInactiveTasks}
+              onChange={(e) => setShowInactiveTasks(e.target.checked)}
+              className="w-3.5 h-3.5 rounded accent-[var(--primary)] cursor-pointer"
+            />
+            <span>Exibir Inativas ({state.tasks.length - activeTasksList.length})</span>
+          </label>
+
           {(searchTerm || filterRole || filterCategory) && (
             <button
               onClick={() => {
@@ -205,7 +278,7 @@ export const AssignmentView: React.FC = () => {
                 setFilterRole('');
                 setFilterCategory('');
               }}
-              className="text-xs font-black text-red-600 hover:underline flex items-center gap-0.5 ml-auto cursor-pointer"
+              className="text-xs font-black text-red-600 hover:underline flex items-center gap-0.5 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
               <span>Limpar Filtros</span>
@@ -216,7 +289,7 @@ export const AssignmentView: React.FC = () => {
 
       {/* Main Dimensioning Area: Adaptive Unassigned Pool + Dense High-Efficiency Task Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
-        {/* Available Unassigned People Pool (3 cols on large screens, compact card list) */}
+        {/* Available Unassigned People Pool */}
         <div className="lg:col-span-3 bg-[var(--paper)] border border-[var(--line)] p-3 rounded-xl space-y-2 sticky top-3 shadow-2xs">
           <div className="flex items-center justify-between border-b border-[var(--line)] pb-1.5">
             <h4 className="text-xs font-black text-[var(--ink)] flex items-center gap-1.5">
@@ -268,10 +341,11 @@ export const AssignmentView: React.FC = () => {
           </div>
         </div>
 
-        {/* Tasks List (9 cols - High density grid: 1 to 4 cols depending on width) */}
+        {/* Tasks Grid */}
         <div className="lg:col-span-9 space-y-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5">
-            {state.tasks.map((task) => {
+            {displayTasks.map((task) => {
+              const isInactive = task.active === false;
               const members = task.members
                 .map((mId) => state.collaborators.find((c) => c.id === mId))
                 .filter(Boolean);
@@ -282,20 +356,47 @@ export const AssignmentView: React.FC = () => {
               return (
                 <div
                   key={task.id}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => handleDrop(e, task.id)}
-                  className="bg-[var(--paper)] border border-[var(--line)] hover:border-[var(--primary-border)] p-2.5 rounded-xl space-y-2 transition-all min-h-[140px] flex flex-col justify-between shadow-2xs"
+                  onDragOver={(e) => !isInactive && e.preventDefault()}
+                  onDrop={(e) => !isInactive && handleDrop(e, task.id)}
+                  className={`border p-2.5 rounded-xl space-y-2 transition-all min-h-[140px] flex flex-col justify-between shadow-2xs ${
+                    isInactive
+                      ? 'bg-slate-100 dark:bg-slate-900/50 border-dashed border-slate-300 dark:border-slate-800 opacity-60'
+                      : 'bg-[var(--paper)] border-[var(--line)] hover:border-[var(--primary-border)]'
+                  }`}
                 >
                   <div>
                     {/* Task Header */}
-                    <div className="border-b border-[var(--line)] pb-1.5 mb-1.5">
+                    <div className="border-b border-[var(--line)] pb-1.5 mb-1.5 space-y-1">
                       <div className="flex items-center justify-between gap-1">
-                        <h4 className="text-xs font-black text-[var(--ink)] truncate" title={task.name}>
-                          {task.name}
+                        <h4 className="text-xs font-black text-[var(--ink)] truncate flex items-center gap-1" title={task.name}>
+                          {isInactive && <EyeOff className="w-3 h-3 text-amber-600 shrink-0" />}
+                          <span className={isInactive ? 'line-through text-[var(--muted)]' : ''}>{task.name}</span>
                         </h4>
-                        <span className="text-[10px] font-black bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary-border)] px-1.5 py-0.2 rounded-full shrink-0">
-                          {members.length} {members.length === 1 ? 'pessoa' : 'pessoas'}
-                        </span>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[10px] font-black bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary-border)] px-1.5 py-0.2 rounded-full">
+                            {members.length}
+                          </span>
+
+                          {/* Action: Clear single task */}
+                          <button
+                            onClick={() => clearTaskAssignments(task.id)}
+                            disabled={members.length === 0}
+                            className="p-1 hover:bg-red-100 dark:hover:bg-red-950 text-slate-400 hover:text-red-600 rounded cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Limpar dimensionamento desta tarefa"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+
+                          {/* Action: Toggle Active/Inactive */}
+                          <button
+                            onClick={() => updateTask(task.id, { active: isInactive ? true : false })}
+                            className="p-1 hover:bg-[var(--bg)] text-slate-400 hover:text-[var(--primary)] rounded cursor-pointer"
+                            title={isInactive ? 'Ativar Tarefa' : 'Desativar / Ocultar Tarefa'}
+                          >
+                            {isInactive ? <EyeOff className="w-3 h-3 text-amber-600" /> : <Eye className="w-3 h-3" />}
+                          </button>
+                        </div>
                       </div>
 
                       {/* Linked roles / categories indicators */}
@@ -317,7 +418,11 @@ export const AssignmentView: React.FC = () => {
 
                     {/* Assigned Members */}
                     <div className="space-y-1 max-h-56 overflow-y-auto pr-0.5">
-                      {members.length > 0 ? (
+                      {isInactive ? (
+                        <div className="p-3 text-center text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-md">
+                          Tarefa desativada (Não entra em intervalos)
+                        </div>
+                      ) : members.length > 0 ? (
                         members.map((col) => {
                           if (!col) return null;
                           return (
@@ -360,7 +465,6 @@ export const AssignmentView: React.FC = () => {
       {/* Near-Mouse Contextual Assignment Popover */}
       {popoverState && selectedCol && (
         <>
-          {/* Backdrop overlay for closing on click outside */}
           <div
             className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[1px]"
             onClick={() => setPopoverState(null)}
@@ -374,7 +478,6 @@ export const AssignmentView: React.FC = () => {
             }}
             className="z-50 w-72 bg-[var(--paper)] border-2 border-[var(--primary-border)] rounded-xl p-3 shadow-2xl space-y-2 animate-in fade-in zoom-in-95 duration-150"
           >
-            {/* Popover Header */}
             <div className="flex items-start justify-between border-b border-[var(--line)] pb-2">
               <div>
                 <span className="text-[9.5px] font-black text-[var(--primary)] uppercase tracking-wider block">
@@ -400,9 +503,7 @@ export const AssignmentView: React.FC = () => {
               </button>
             </div>
 
-            {/* Contextual Task Options List (fits up to 10 items before scroll) */}
             <div className="space-y-1 max-h-[320px] overflow-y-auto pr-0.5">
-              {/* Recommended / Matching Tasks Section */}
               {popoverTasks.recommended.length > 0 && (
                 <div className="space-y-1">
                   <div className="text-[9px] font-extrabold text-[var(--primary)] uppercase tracking-wider flex items-center gap-1 pt-0.5">
@@ -430,7 +531,6 @@ export const AssignmentView: React.FC = () => {
                 </div>
               )}
 
-              {/* Toggle for Other non-matching Tasks */}
               {popoverTasks.others.length > 0 && (
                 <div className="pt-1.5 border-t border-[var(--line)]">
                   {!showOtherTasks ? (
@@ -468,17 +568,168 @@ export const AssignmentView: React.FC = () => {
                   )}
                 </div>
               )}
-
-              {popoverTasks.recommended.length === 0 && popoverTasks.others.length === 0 && (
-                <p className="p-3 text-center text-xs text-[var(--muted)] italic">
-                  Nenhuma tarefa cadastrada.
-                </p>
-              )}
             </div>
           </div>
         </>
       )}
+
+      {/* GUIDED STEP-BY-STEP DIMENSIONING MODAL */}
+      {showGuidedWizard && currentWizardTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs">
+          <div className="bg-[var(--paper)] border-2 border-[var(--primary-border)] rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Wizard Header */}
+            <div className="p-4 bg-[var(--bg)] border-b border-[var(--line)] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-amber-500/20 text-amber-600 rounded-xl">
+                  <Compass className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-black uppercase text-amber-600 tracking-wider">
+                    Modo Guiado Passo a Passo (Tarefa {wizardStep + 1} de {activeTasksList.length})
+                  </div>
+                  <h3 className="text-base font-black text-[var(--ink)]">{currentWizardTask.name}</h3>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowGuidedWizard(false)}
+                className="p-1.5 hover:bg-[var(--paper)] rounded-xl text-[var(--muted)] hover:text-[var(--ink)]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Wizard Stepper Progress Bar */}
+            <div className="w-full bg-[var(--line)] h-1.5">
+              <div
+                className="bg-[var(--primary)] h-1.5 transition-all duration-300"
+                style={{ width: `${((wizardStep + 1) / activeTasksList.length) * 100}%` }}
+              />
+            </div>
+
+            {/* Wizard Content */}
+            <div className="p-4 overflow-y-auto space-y-4 flex-1">
+              {/* Currently Assigned List */}
+              <div className="bg-[var(--bg)] p-3 rounded-xl border border-[var(--line)] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-[var(--ink)]">
+                    Colaboradores Alocados nesta Tarefa ({currentWizardTask.members.length})
+                  </span>
+                  {currentWizardTask.members.length > 0 && (
+                    <button
+                      onClick={() => clearTaskAssignments(currentWizardTask.id)}
+                      className="text-[11px] text-red-600 font-bold hover:underline cursor-pointer"
+                    >
+                      Limpar esta tarefa
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {currentWizardTask.members.length > 0 ? (
+                    currentWizardTask.members.map((mId) => {
+                      const col = state.collaborators.find((c) => c.id === mId);
+                      if (!col) return null;
+                      return (
+                        <div
+                          key={col.id}
+                          className="px-2 py-1 bg-[var(--paper)] border border-[var(--line)] rounded-lg text-xs font-bold text-[var(--ink)] flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <span>{col.name}</span>
+                          <button
+                            onClick={() => unassignTask(col.id)}
+                            className="p-0.5 hover:bg-red-100 dark:hover:bg-red-950 text-red-600 rounded"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-xs text-[var(--muted)] italic p-1">
+                      Nenhum colaborador atribuído a esta tarefa ainda.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Unassigned Candidates for this Task */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-black text-[var(--ink)] flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-[var(--primary)]" />
+                  <span>Escolha entre os disponíveis ({unassignedPeople.length} sem tarefa):</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                  {unassignedPeople.map((col) => {
+                    const hasRoleReq = (currentWizardTask.allowedRoles || []).length > 0;
+                    const isMatched = !hasRoleReq || (currentWizardTask.allowedRoles || []).includes(col.role);
+
+                    return (
+                      <div
+                        key={col.id}
+                        className={`p-2 rounded-xl border flex items-center justify-between text-xs transition-all ${
+                          isMatched
+                            ? 'bg-[var(--paper)] border-[var(--primary-border)]'
+                            : 'bg-[var(--bg)] border-[var(--line)] opacity-80'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-1">
+                          <span className="font-extrabold text-[var(--ink)] truncate block">{col.name}</span>
+                          <span className="text-[10px] text-[var(--muted)]">
+                            {col.role || 'Geral'} • {col.category || 'Operacional'}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => assignTask(col.id, currentWizardTask.id)}
+                          className="px-2 py-1 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-[11px] font-black rounded-lg cursor-pointer shrink-0"
+                        >
+                          Atribuir
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Wizard Footer Navigation */}
+            <div className="p-3 bg-[var(--bg)] border-t border-[var(--line)] flex items-center justify-between">
+              <button
+                onClick={() => setWizardStep((prev) => Math.max(0, prev - 1))}
+                disabled={wizardStep === 0}
+                className="px-3 py-1.5 border border-[var(--line)] text-xs font-bold rounded-xl flex items-center gap-1 disabled:opacity-40 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Anterior</span>
+              </button>
+
+              <div className="text-xs font-bold text-[var(--muted)]">
+                {wizardStep + 1} / {activeTasksList.length}
+              </div>
+
+              {wizardStep < activeTasksList.length - 1 ? (
+                <button
+                  onClick={() => setWizardStep((prev) => prev + 1)}
+                  className="px-4 py-1.5 bg-[var(--primary)] text-white text-xs font-black rounded-xl flex items-center gap-1 shadow-2xs cursor-pointer"
+                >
+                  <span>Próxima Tarefa</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowGuidedWizard(false)}
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl flex items-center gap-1 shadow-2xs cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Concluir</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

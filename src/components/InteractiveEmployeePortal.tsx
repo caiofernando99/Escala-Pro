@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { SearchInput } from '../components/SearchInput';
 import { EscalaProLogo } from './EscalaProLogo';
@@ -35,16 +35,14 @@ interface InteractiveEmployeePortalProps {
 export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps> = ({ onClose, isStandalonePortal = false }) => {
   const { state: defaultState, showNotice } = useApp();
 
-  // Try to parse URL payload data if standalone link or present in URL
-  const [sharedState] = useState(() => {
+  // Parse URL parameter snapshot if present
+  const [urlState] = useState(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const dataParam = params.get('data');
       if (dataParam) {
         const decoded = decodeSharedState(dataParam);
-        if (decoded) {
-          return decoded;
-        }
+        if (decoded) return decoded;
       }
     } catch {
       // Fallback
@@ -52,8 +50,56 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
     return null;
   });
 
-  // Effective state to render
-  const state = sharedState ? { ...defaultState, ...sharedState } : defaultState;
+  // Live state that updates dynamically in real-time
+  const [liveState, setLiveState] = useState(() => {
+    return urlState ? { ...defaultState, ...urlState } : defaultState;
+  });
+
+  const [lastSyncTime, setLastSyncTime] = useState<string>(() => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+
+  // Listen to BroadcastChannel and storage events for real-time updates across windows/tabs
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      bc = new BroadcastChannel('escalapro_live_channel');
+      bc.onmessage = (event) => {
+        if (event.data && event.data.type === 'STATE_UPDATED' && event.data.state) {
+          setLiveState(event.data.state);
+          setLastSyncTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        }
+      };
+    }
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'escalapro_state_v1' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed) {
+            setLiveState(parsed);
+            setLastSyncTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+      if (bc) bc.close();
+    };
+  }, []);
+
+  // Update liveState when defaultState in App Context changes
+  useEffect(() => {
+    if (!urlState) {
+      setLiveState(defaultState);
+      setLastSyncTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    }
+  }, [defaultState, urlState]);
+
+  const state = liveState;
 
   const [searchName, setSearchName] = useState('');
   const [selectedRole, setSelectedRole] = useState('ALL');
@@ -64,7 +110,11 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
   const [copiedLink, setCopiedLink] = useState(false);
 
   const activeDate = state.selectedDate || defaultState.selectedDate;
-  const dayIntervals = (state.intervals && state.intervals[activeDate]) || state.intervals || {};
+
+  // Handle intervals whether snapshot or full state
+  const dayIntervals = (state.intervals && state.intervals[activeDate])
+    ? state.intervals[activeDate]
+    : (state.intervals || {});
 
   // All unique roles and categories
   const allRoles = Array.from(new Set((state.collaborators || []).map((c: any) => c.role).filter(Boolean)));
@@ -79,7 +129,7 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
   // Find task assigned
   const getTaskAssigned = (collabId: string) => {
     const task = (state.tasks || []).find((t: any) => (t.members || []).includes(collabId));
-    return task ? task.name : 'Apoio Geral / Não Alocado';
+    return task ? task.name : 'Apoio Geral / Não Dimensionado';
   };
 
   // Status helper for person on active date
@@ -181,7 +231,7 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
         </div>
       </div>
 
-      {/* PROMINENT ACTIVE DATE HIGHLIGHT BAR BELOW HEADER */}
+      {/* PROMINENT ACTIVE DATE HIGHLIGHT BAR & LIVE STATUS BELOW HEADER */}
       <div className="bg-[var(--primary-soft)] border-2 border-[var(--primary-border)] p-3 px-4 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs font-black text-[var(--primary)] shadow-2xs">
         <div className="flex items-center gap-2">
           <Calendar className="w-4.5 h-4.5 shrink-0" />
@@ -192,6 +242,12 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
           <span className="text-[11px] font-bold opacity-80 capitalize hidden sm:inline">
             ({formatDateLongBR(activeDate)})
           </span>
+        </div>
+
+        <div className="flex items-center gap-2 bg-emerald-100 text-emerald-950 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 px-3 py-1 rounded-lg text-[10.5px] font-bold">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>ONLINE EM TEMPO REAL</span>
+          <span className="opacity-70 font-mono">({lastSyncTime})</span>
         </div>
       </div>
 
@@ -425,7 +481,7 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
       {/* TAB CONTENT 1: VISÃO POR TAREFAS E HORÁRIOS DE INTERVALO DENTRO DAS TAREFAS */}
       {portalViewMode === 'tasks' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="columns-1 sm:columns-2 xl:columns-3 gap-3 space-y-3 [&>div]:break-inside-avoid">
             {state.tasks.map((task) => {
               // Get members assigned to this task that are in filtered list
               const taskMembers = task.members
@@ -462,7 +518,7 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
               return (
                 <div
                   key={task.id}
-                  className="bg-[var(--paper)] border-2 border-[var(--line)] rounded-2xl p-4 shadow-xs space-y-3 flex flex-col justify-between"
+                  className="bg-[var(--paper)] border-2 border-[var(--line)] rounded-2xl p-4 shadow-xs space-y-3 break-inside-avoid"
                 >
                   <div>
                     {/* Task Header */}
@@ -578,7 +634,7 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div className="columns-1 sm:columns-2 xl:columns-3 gap-3 space-y-3 [&>div]:break-inside-avoid">
             {filteredCollaborators.map((col) => {
               const st = getPersonStatus(col.id);
               const taskName = getTaskAssigned(col.id);
@@ -589,7 +645,7 @@ export const InteractiveEmployeePortal: React.FC<InteractiveEmployeePortalProps>
                 <div
                   key={col.id}
                   onClick={() => setSelectedCollabId(col.id)}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all break-inside-avoid ${
                     isSelected
                       ? 'border-[var(--primary)] bg-[var(--paper)] ring-2 ring-[var(--primary-border)] shadow-md'
                       : 'border-[var(--line)] bg-[var(--paper)] hover:border-blue-400 hover:shadow-xs'

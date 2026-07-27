@@ -250,49 +250,6 @@ export const SettingsView: React.FC = () => {
         </span>
       </div>
 
-      {/* Navigation & Interface Controls */}
-      <div className="bg-[var(--paper)] border border-[var(--line)] p-5 rounded-2xl space-y-3 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary-border)] rounded-xl">
-              <PanelLeft className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-extrabold text-[var(--ink)]">Menu Lateral de Navegação (Sidebar)</h3>
-              <p className="text-xs text-[var(--muted)] font-medium">
-                Reduza o menu lateral para exibir apenas os ícones, liberando mais espaço de tela para a escala.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setSidebarCollapsed(false)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-                !state.isSidebarCollapsed
-                  ? 'bg-[var(--primary)] text-white shadow-2xs'
-                  : 'bg-[var(--bg)] text-[var(--ink)] border border-[var(--line)] hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <PanelLeft className="w-4 h-4" />
-              <span>Expandido (Padrão)</span>
-            </button>
-
-            <button
-              onClick={() => setSidebarCollapsed(true)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-                state.isSidebarCollapsed
-                  ? 'bg-[var(--primary)] text-white shadow-2xs'
-                  : 'bg-[var(--bg)] text-[var(--ink)] border border-[var(--line)] hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <PanelLeftClose className="w-4 h-4" />
-              <span>Reduzido (Apenas Ícones)</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Export & Import Backup Section (JSON) */}
       <div className="bg-[var(--paper)] border border-[var(--line)] p-6 rounded-2xl space-y-4 shadow-2xs">
         <div className="flex items-center gap-2 text-[var(--primary)] font-bold text-sm">
