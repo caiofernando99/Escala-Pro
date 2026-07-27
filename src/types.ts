@@ -95,6 +95,19 @@ export interface DeletedCollaborator {
   expiresAt: string; // ISO date string (60 days later)
 }
 
+export type ProcessType = 'caracteristica' | 'curiosidade' | 'explicacao' | 'procedimento' | 'seguranca' | 'qualidade';
+
+export interface ProcessKnowledge {
+  id: string;
+  title: string;
+  category: string;
+  type: ProcessType;
+  description: string;
+  keyTakeaways?: string[];
+  iconName?: string;
+  active?: boolean;
+}
+
 export interface AppState {
   brandId?: string;
   teamName: string;
@@ -116,6 +129,7 @@ export interface AppState {
   breaks: BreakSlot[];
   attendance: Record<string, Record<string, boolean>>; // date -> collaboratorId -> isPresent (manual override)
   intervals: Record<string, Record<string, string[]>>; // date -> breakId -> collaboratorId[]
+  processKnowledgeList?: ProcessKnowledge[];
   history: Array<{
     id: string;
     date: string;

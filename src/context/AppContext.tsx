@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { AppState, AutoBackupInfo, BreakSlot, Collaborator, DeletedCollaborator, OnlineSpreadsheetConfig, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
-import { generateId, isScaleOff, getTodayISO, formatDateBR, getCollaboratorStatus } from '../utils/helpers';
+import { AppState, AutoBackupInfo, BreakSlot, Collaborator, DeletedCollaborator, OnlineSpreadsheetConfig, ProcessKnowledge, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
+import { generateId, isScaleOff, getTodayISO, formatDateBR, getCollaboratorStatus, formatPersonName } from '../utils/helpers';
 import { initialAppState } from '../utils/initialData';
 
 const STORAGE_KEY = 'people-scheduler-v3';
@@ -68,6 +68,9 @@ interface AppContextType {
   exportLocalSpreadsheet: () => void;
   exportTeamRosterSpreadsheet: () => void;
   generateTemplateSpreadsheet: () => void;
+  addProcessKnowledge: (item: Omit<ProcessKnowledge, 'id'>) => void;
+  updateProcessKnowledge: (id: string, updates: Partial<ProcessKnowledge>) => void;
+  deleteProcessKnowledge: (id: string) => void;
   toggleSidebarCollapsed: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
 }
@@ -82,9 +85,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(saved);
         const isExampleSpreadsheet =
           parsed.onlineSpreadsheet?.url?.includes('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms');
+        const formattedCols = (parsed.collaborators || initialAppState.collaborators).map((c: Collaborator) => ({
+          ...c,
+          name: formatPersonName(c.name),
+        }));
         return {
           ...initialAppState,
           ...parsed,
+          collaborators: formattedCols,
+          processKnowledgeList: parsed.processKnowledgeList || initialAppState.processKnowledgeList,
           onlineSpreadsheet: isExampleSpreadsheet ? null : parsed.onlineSpreadsheet || null,
           theme: parsed.theme || 'slate',
         };
@@ -92,7 +101,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       // Fallback
     }
-    return initialAppState;
+    const formattedInitialCols = initialAppState.collaborators.map((c) => ({
+      ...c,
+      name: formatPersonName(c.name),
+    }));
+    return {
+      ...initialAppState,
+      collaborators: formattedInitialCols,
+    };
   });
 
   const [noticeState, setNoticeState] = useState<{
@@ -330,9 +346,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addCollaborator = (customProps?: Partial<Collaborator>) => {
+    const rawName = customProps?.name || 'Novo Colaborador';
     const newCol: Collaborator = {
       id: generateId(),
-      name: customProps?.name || 'Novo Colaborador',
+      name: formatPersonName(rawName),
       login: customProps?.login || '',
       registration: customProps?.registration || '',
       shift: customProps?.shift || state.teamShift || 'Geral',
@@ -380,10 +397,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateCollaborator = (id: string, updates: Partial<Collaborator>) => {
+    const formattedUpdates = { ...updates };
+    if (formattedUpdates.name) {
+      formattedUpdates.name = formatPersonName(formattedUpdates.name);
+    }
     setState((prev) => ({
       ...prev,
-      collaborators: prev.collaborators.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+      collaborators: prev.collaborators.map((c) => (c.id === id ? { ...c, ...formattedUpdates } : c)),
     }));
+  };
+
+  const addProcessKnowledge = (item: Omit<ProcessKnowledge, 'id'>) => {
+    const newItem: ProcessKnowledge = {
+      ...item,
+      id: generateId(),
+      active: item.active !== undefined ? item.active : true,
+    };
+    setState((prev) => ({
+      ...prev,
+      processKnowledgeList: [...(prev.processKnowledgeList || []), newItem],
+    }));
+    showNotice(`Processo "${item.title}" cadastrado com sucesso!`);
+  };
+
+  const updateProcessKnowledge = (id: string, updates: Partial<ProcessKnowledge>) => {
+    setState((prev) => ({
+      ...prev,
+      processKnowledgeList: (prev.processKnowledgeList || []).map((p) =>
+        p.id === id ? { ...p, ...updates } : p
+      ),
+    }));
+    showNotice('Item de processo atualizado.');
+  };
+
+  const deleteProcessKnowledge = (id: string) => {
+    setState((prev) => ({
+      ...prev,
+      processKnowledgeList: (prev.processKnowledgeList || []).filter((p) => p.id !== id),
+    }));
+    showNotice('Item de processo removido.');
   };
 
   const deleteCollaborator = (id: string) => {
@@ -998,8 +1050,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return foundKey ? String(row[foundKey]).trim() : '';
         };
 
-        const name = getVal('nome', 'colaborador', 'name');
-        if (!name) return;
+        const rawName = getVal('nome', 'colaborador', 'name');
+        if (!rawName) return;
+        const name = formatPersonName(rawName);
 
         const role = getVal('cargo', 'função', 'funcao', 'role') || 'Operador de Processo';
         const category = getVal('categoria', 'category') || 'Inbound';
@@ -1607,6 +1660,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         exportLocalSpreadsheet,
         exportTeamRosterSpreadsheet,
         generateTemplateSpreadsheet,
+        addProcessKnowledge,
+        updateProcessKnowledge,
+        deleteProcessKnowledge,
         toggleSidebarCollapsed,
         setSidebarCollapsed,
       }}

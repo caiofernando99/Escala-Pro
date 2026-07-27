@@ -4,6 +4,29 @@ export function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
 
+/**
+ * Capitalizes a person's name into "Aaaa Aaaa Aaaa" / Title Case format.
+ * E.g., "carlos eduardo santos" -> "Carlos Eduardo Santos"
+ * "MARIA DA SILVA" -> "Maria da Silva"
+ */
+export function formatPersonName(name: string): string {
+  if (!name || !name.trim()) return '';
+  const lowercasePrepositions = new Set(['de', 'da', 'do', 'dos', 'das', 'e', 'del', 'di']);
+  
+  const words = name.trim().split(/\s+/);
+  
+  return words
+    .map((word, idx) => {
+      if (!word) return '';
+      const lower = word.toLowerCase();
+      if (idx > 0 && lowercasePrepositions.has(lower)) {
+        return lower;
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
 export function getTodayISO(): string {
   const d = new Date();
   const year = d.getFullYear();

@@ -232,4 +232,76 @@ export const initialAppState: AppState = {
   history: [],
   dailyReports: {},
   onlineSpreadsheet: null,
+  processKnowledgeList: [
+    {
+      id: 'pk_1',
+      title: 'Acurácia de Inventário e Bipagem Cega (PI)',
+      category: 'Inventário & Qualidade',
+      type: 'explicacao',
+      description: 'A contagem cega exige a verificação física de cada item individualmente. Nunca presuma a quantidade baseando-se apenas na informação contida no rótulo da caixa fechada.',
+      keyTakeaways: [
+        'Abra a caixa e conte cada unidade física',
+        'Bipe o código EAN de forma individual',
+        'Em caso de divergência, abra chamado de recontagem com o líder de turno'
+      ],
+      iconName: 'CheckCircle2',
+      active: true,
+    },
+    {
+      id: 'pk_2',
+      title: 'Segurança Operacional: Ergonomia na Elevação de Cargas',
+      category: 'Segurança do Trabalho',
+      type: 'seguranca',
+      description: 'Ao erguer volumes pesados (acima de 10kg), flexione os joelhos e mantenha a coluna alinhada. Para pesos superiores a 20kg, solicite ajuda a um colega.',
+      keyTakeaways: [
+        'Dobre os joelhos e use a força das pernas',
+        'Mantenha o volume próximo ao peito',
+        'Evite torcer o tronco enquanto segura a carga'
+      ],
+      iconName: 'ShieldCheck',
+      active: true,
+    },
+    {
+      id: 'pk_3',
+      title: 'Gargalo Operacional: DWELL Time e Liberação de Docas',
+      category: 'Produtividade & Indicadores',
+      type: 'curiosidade',
+      description: 'Você sabia? Reduzir 1 minuto no tempo de liberação de cada palete na doca permite antecipar a saída dos caminhões de expedição em até 15 minutos no fechamento do turno.',
+      keyTakeaways: [
+        'Verifique a doca correta antes de mover o palete',
+        'Evite obstruir corredores e áreas de trânsito',
+        'Comunique imediatamente se houver avaria na doca'
+      ],
+      iconName: 'Lightbulb',
+      active: true,
+    },
+    {
+      id: 'pk_4',
+      title: 'Procedimento de Segregação de Itens Danificados / Avarias',
+      category: 'Inbound & Outbound',
+      type: 'procedimento',
+      description: 'Produtos com embalagem violada, vazamentos ou rasgos não podem ser bipados no fluxo normal. Devem ser encaminhados imediatamente para a gaiola de avarias.',
+      keyTakeaways: [
+        'Identifique o item com a etiqueta vermelha de Avaria',
+        'Registre o motivo no sistema de auditoria',
+        'Nunca misture avarias com produtos em perfeito estado'
+      ],
+      iconName: 'AlertTriangle',
+      active: true,
+    },
+    {
+      id: 'pk_5',
+      title: 'Padrão de Embalagem & Selagem de Caixas (Packing)',
+      category: 'Packing & Expedição',
+      type: 'caracteristica',
+      description: 'Garantir a aplicação correta da fita adesiva em formato "H" previne aberturas acidentais durante o transporte e protege a mercadoria até a entrega final.',
+      keyTakeaways: [
+        'Aplique a fita cobrindo toda a junção central',
+        'Sele as bordas laterais para formar a estrutura em "H"',
+        'Cole a etiqueta de envio em superfície plana sem dobras'
+      ],
+      iconName: 'Sparkles',
+      active: true,
+    },
+  ],
 };
