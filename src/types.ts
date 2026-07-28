@@ -66,18 +66,12 @@ export interface DailyReport {
 }
 
 export type ThemeOption =
-  | 'slate'
   | 'emerald'
+  | 'slate'
   | 'indigo'
-  | 'material-you'
-  | 'material-teal'
-  | 'material-terracotta'
-  | 'sage-matte'
-  | 'nord-frost'
-  | 'material-dark'
-  | 'obsidian-dark'
-  | 'dark'
-  | 'high-contrast';
+  | 'teal'
+  | 'terracotta'
+  | 'obsidian';
 
 export interface OnlineSpreadsheetConfig {
   name: string; // e.g. "Planilha Oficial de Turnos - Logística T2"
@@ -86,6 +80,8 @@ export interface OnlineSpreadsheetConfig {
   autoSyncEnabled?: boolean; // Real-time auto sync on edit
   lastSyncedAt?: string; // e.g. "25/07/2026 12:30:00"
   syncCount?: number;
+  syncStatus?: 'success' | 'error' | 'testing';
+  lastError?: string;
 }
 
 export interface DeletedCollaborator {

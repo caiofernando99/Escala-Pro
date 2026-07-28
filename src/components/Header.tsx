@@ -120,10 +120,10 @@ export const Header: React.FC<HeaderProps> = ({ pageTitle, onOpenTutorial, onTog
           {/* Real-time Spreadsheet Sync Status Pill */}
           {state.onlineSpreadsheet && state.onlineSpreadsheet.webhookUrl && (
             <div
-              className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10.5px] font-black border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800 shadow-2xs"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-black border-2 bg-emerald-100 dark:bg-emerald-950 text-emerald-950 dark:text-emerald-100 border-emerald-500 shadow-2xs"
               title={`Sincronizado com "${state.onlineSpreadsheet.name}" • Última atualização: ${state.onlineSpreadsheet.lastSyncedAt || 'Agora'}`}
             >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
               <span className="truncate hidden sm:inline">Tempo Real Ativo</span>
             </div>
           )}
@@ -131,10 +131,10 @@ export const Header: React.FC<HeaderProps> = ({ pageTitle, onOpenTutorial, onTog
           {onOpenTutorial && (
             <button
               onClick={onOpenTutorial}
-              className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 border border-emerald-500/30 rounded-lg text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
               title="Abrir Tutorial"
             >
-              <BookOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <BookOpen className="w-3.5 h-3.5 text-white" />
               <span className="hidden sm:inline">Guia</span>
             </button>
           )}

@@ -81,7 +81,7 @@ const MainLayout: React.FC = () => {
       case 'breaks':
         return 'Horários de Intervalo';
       case 'briefing':
-        return 'Apresentação Briefing (16:9)';
+        return 'Montagem de Slide';
       case 'portal':
         return 'Portal de Consulta do Colaborador';
       case 'share':

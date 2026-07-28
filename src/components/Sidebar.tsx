@@ -45,7 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'presence', label: 'Presença de hoje', icon: CheckSquare },
     { id: 'assignment', label: 'Dimensionamento', icon: Shuffle },
     { id: 'breaks', label: 'Intervalos', icon: Clock },
-    { id: 'briefing', label: 'Slide Briefing 16:9', icon: Presentation },
+    { id: 'briefing', label: 'Montagem de slide', icon: Presentation },
     { id: 'portal', label: 'Portal do Colaborador', icon: UserCheck },
     { id: 'share', label: 'Compartilhar', icon: Share2 },
     { id: 'report', label: 'Relatório diário', icon: FileText },

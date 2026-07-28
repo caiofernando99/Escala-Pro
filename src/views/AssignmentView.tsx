@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Check,
   Layers,
+  GripVertical,
 } from 'lucide-react';
 import { matchesSearch, isScaleOff, getCollaboratorStatus } from '../utils/helpers';
 import { Task, Collaborator } from '../types';
@@ -36,6 +37,7 @@ export const AssignmentView: React.FC = () => {
     updateTask,
     undo,
     canUndo,
+    setSelectedGlobalFilters,
     showNotice,
   } = useApp();
 
@@ -61,7 +63,20 @@ export const AssignmentView: React.FC = () => {
   const activeShift = state.selectedShiftFilter || 'ALL';
   const activeTL = state.selectedTLFilter || 'ALL';
 
-  // Active present people today
+  // Available unique shifts & TLs for filters
+  const defaultShifts = ['Geral', 'T1', 'T2', 'T3', 'T4', 'T5'];
+  const colShifts = state.collaborators.map((c) => c.shift || 'Geral');
+  const availableShifts = Array.from(new Set([...defaultShifts, ...colShifts]));
+
+  const availableTLsForShift = Array.from(
+    new Set(
+      state.collaborators
+        .filter((c) => activeShift === 'ALL' || activeShift === 'todos' || (c.shift || 'Geral') === activeShift)
+        .map((c) => c.teamLeader || state.defaultTeamLeader || 'Sem Time')
+    )
+  );
+
+  // Active present people today strictly matching active shift & team leader filters
   const presentPeople = state.collaborators.filter((c) => {
     const colShift = c.shift || 'Geral';
     const matchesShift = activeShift === 'ALL' || activeShift === 'todos' || colShift === activeShift;
@@ -99,6 +114,16 @@ export const AssignmentView: React.FC = () => {
     if (id) {
       assignTask(id, taskId);
       showNotice('Colaborador alocado para a tarefa!');
+    }
+    setDraggedColId(null);
+  };
+
+  const handleDropUnassign = (e: React.DragEvent) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain') || draggedColId;
+    if (id) {
+      unassignTask(id);
+      showNotice('Colaborador removido da tarefa!');
     }
     setDraggedColId(null);
   };
@@ -217,12 +242,47 @@ export const AssignmentView: React.FC = () => {
 
             <button
               onClick={() => {
+                let countRemoved = 0;
+                state.tasks.forEach((t) => {
+                  t.members.forEach((mId) => {
+                    const col = state.collaborators.find((c) => c.id === mId);
+                    if (!col) {
+                      unassignTask(mId);
+                      countRemoved++;
+                      return;
+                    }
+                    const colShift = col.shift || 'Geral';
+                    const colTL = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
+                    const matchesShift = activeShift === 'ALL' || activeShift === 'todos' || colShift === activeShift;
+                    const matchesTL = activeTL === 'ALL' || activeTL === 'todos' || colTL === activeTL;
+                    const statusInfo = getCollaboratorStatus(col, activeDate, state);
+
+                    if (statusInfo.status !== 'presente' || !matchesShift || !matchesTL) {
+                      unassignTask(mId);
+                      countRemoved++;
+                    }
+                  });
+                });
+                showNotice(
+                  countRemoved > 0
+                    ? `${countRemoved} colaborador(es) ausente(s) ou fora do filtro foram removido(s) das tarefas.`
+                    : 'Nenhum colaborador ausente estava alocado.'
+                );
+              }}
+              className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 text-xs font-black rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900 cursor-pointer transition-colors"
+              title="Limpa colaboradores ausentes ou de outros turnos/times das tarefas"
+            >
+              Limpar Ausentes
+            </button>
+
+            <button
+              onClick={() => {
                 clearAssignments();
                 showNotice('Escala restaurada / alocações limpas.');
               }}
               className="px-2.5 py-1 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-[var(--bg)] text-[var(--ink)] cursor-pointer transition-transform active:scale-95"
             >
-              Restaurar / Limpar Tudo
+              Limpar Tudo
             </button>
 
             <motion.button
@@ -231,7 +291,7 @@ export const AssignmentView: React.FC = () => {
               onClick={() => {
                 setIsAutoAssigning(true);
                 autoAssign();
-                showNotice('Tarefas auto-dimensionadas com sucesso!');
+                showNotice('Tarefas auto-dimensionadas para a equipe presente!');
                 setTimeout(() => setIsAutoAssigning(false), 700);
               }}
               className="px-3 py-1 bg-[var(--primary)] text-white text-xs font-black rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1 shadow-2xs cursor-pointer"
@@ -243,12 +303,48 @@ export const AssignmentView: React.FC = () => {
         </div>
 
         {/* Filter and Search Bar */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs bg-[var(--bg)] p-2 rounded-xl border border-[var(--line)]">
+          {/* Seletor de Turno */}
+          <div className="flex items-center gap-1 bg-[var(--paper)] px-2 py-1 rounded-lg border border-[var(--line)]">
+            <span className="text-[var(--primary)] font-black text-[10px] uppercase tracking-wider">Turno:</span>
+            <select
+              value={activeShift}
+              onChange={(e) => setSelectedGlobalFilters({ shift: e.target.value, teamLeader: activeTL })}
+              className="bg-transparent border-none text-xs font-black text-[var(--ink)] cursor-pointer focus:outline-none"
+            >
+              <option value="ALL">Todos os Turnos</option>
+              {availableShifts.map((s) => (
+                <option key={s} value={s}>
+                  Turno {s}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Seletor de Time / TL */}
+          <div className="flex items-center gap-1 bg-[var(--paper)] px-2 py-1 rounded-lg border border-[var(--line)]">
+            <span className="text-[var(--primary)] font-black text-[10px] uppercase tracking-wider">Time:</span>
+            <select
+              value={activeTL}
+              onChange={(e) => setSelectedGlobalFilters({ shift: activeShift, teamLeader: e.target.value })}
+              className="bg-transparent border-none text-xs font-black text-[var(--ink)] cursor-pointer focus:outline-none max-w-[140px] truncate"
+            >
+              <option value="ALL">
+                {activeShift !== 'ALL' && activeShift !== 'todos' ? `Todos (${activeShift})` : 'Todos os Times'}
+              </option>
+              {availableTLsForShift.map((tl) => (
+                <option key={tl} value={tl}>
+                  {tl}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <SearchInput
             value={searchTerm}
             onChange={setSearchTerm}
             placeholder="Pesquisar colaborador..."
-            className="w-full sm:w-48"
+            className="w-full sm:w-44"
           />
 
           <div className="flex items-center gap-1">
@@ -256,7 +352,7 @@ export const AssignmentView: React.FC = () => {
             <select
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
-              className="bg-[var(--bg)] border border-[var(--line)] rounded-lg px-2 py-0.5 text-xs font-bold text-[var(--ink)] cursor-pointer"
+              className="bg-[var(--paper)] border border-[var(--line)] rounded-lg px-2 py-0.5 text-xs font-bold text-[var(--ink)] cursor-pointer"
             >
               <option value="">Todos os Cargos</option>
               {state.roles.map((r) => (
@@ -272,7 +368,7 @@ export const AssignmentView: React.FC = () => {
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="bg-[var(--bg)] border border-[var(--line)] rounded-lg px-2 py-0.5 text-xs font-bold text-[var(--ink)] cursor-pointer"
+              className="bg-[var(--paper)] border border-[var(--line)] rounded-lg px-2 py-0.5 text-xs font-bold text-[var(--ink)] cursor-pointer"
             >
               <option value="">Todas as Categorias</option>
               {state.categories.map((c) => (
@@ -312,7 +408,11 @@ export const AssignmentView: React.FC = () => {
       {/* Main Dimensioning Area: Adaptive Unassigned Pool + Dense High-Efficiency Task Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
         {/* Available Unassigned People Pool */}
-        <div className="lg:col-span-3 bg-[var(--paper)] border border-[var(--line)] p-3 rounded-xl space-y-2 sticky top-3 shadow-2xs">
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDropUnassign}
+          className="lg:col-span-3 bg-[var(--paper)] border-2 border-[var(--primary-border)] p-3 rounded-xl space-y-2 sticky top-3 shadow-2xs"
+        >
           <div className="flex items-center justify-between border-b border-[var(--line)] pb-1.5">
             <h4 className="text-xs font-black text-[var(--ink)] flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-[var(--primary)]" />
@@ -447,21 +547,60 @@ export const AssignmentView: React.FC = () => {
                       ) : members.length > 0 ? (
                         members.map((col) => {
                           if (!col) return null;
+                          const statusInfo = getCollaboratorStatus(col, activeDate, state);
+                          const colShift = col.shift || 'Geral';
+                          const colTL = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
+                          const matchesShift = activeShift === 'ALL' || activeShift === 'todos' || colShift === activeShift;
+                          const matchesTL = activeTL === 'ALL' || activeTL === 'todos' || colTL === activeTL;
+                          const isPresent = statusInfo.status === 'presente';
+                          const isFilteredOut = !matchesShift || !matchesTL;
+
                           return (
                             <div
                               key={col.id}
-                              className="p-1 bg-[var(--bg)] border border-[var(--line)] rounded-md flex items-center justify-between text-[10px] hover:border-[var(--primary)] transition-colors shadow-2xs"
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, col.id)}
+                              className={`p-1.5 border rounded-md flex items-center justify-between text-[10px] transition-all shadow-2xs cursor-grab active:cursor-grabbing group ${
+                                !isPresent
+                                  ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-900'
+                                  : isFilteredOut
+                                  ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-900'
+                                  : 'bg-[var(--bg)] border-[var(--line)] hover:border-[var(--primary)]'
+                              }`}
+                              title="Arraste para mover para outra tarefa ou de volta para Sem Tarefa"
                             >
-                              <div className="min-w-0 pr-1">
-                                <span className="font-extrabold text-[var(--ink)] truncate block text-[10px]">
-                                  {col.name} <span className="text-[var(--primary)] font-black">[{col.scale}]</span>
-                                </span>
-                                <span className="text-[8.5px] text-[var(--muted)] truncate block">
-                                  {col.role || 'Geral'} • {col.category || 'Geral'}
-                                </span>
+                              <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                                <GripVertical className="w-3.5 h-3.5 text-[var(--muted)] group-hover:text-[var(--primary)] shrink-0 cursor-grab" />
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <span className="font-extrabold text-[var(--ink)] truncate block text-[10px]">
+                                      {col.name} <span className="text-[var(--primary)] font-black">[{col.scale}]</span>
+                                    </span>
+                                    {!isPresent && (
+                                      <span className="text-[8px] font-black px-1 py-0.2 bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200 rounded border border-rose-300">
+                                        {statusInfo.status === 'ausente' && '🔴 Ausente'}
+                                        {statusInfo.status === 'ferias' && '🏖️ Férias'}
+                                        {statusInfo.status === 'licenca' && '🏥 Licença'}
+                                        {statusInfo.status === 'treinamento' && '📚 Treinamento'}
+                                        {statusInfo.status === 'folga' && '🌴 Folga'}
+                                      </span>
+                                    )}
+                                    {isPresent && isFilteredOut && (
+                                      <span className="text-[8px] font-black px-1 py-0.2 bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 rounded border border-amber-300">
+                                        Outro Turno ({col.shift})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[8.5px] text-[var(--muted)] truncate block font-medium">
+                                    {col.role || 'Geral'} • {col.category || 'Geral'}
+                                  </span>
+                                </div>
                               </div>
                               <button
-                                onClick={() => unassignTask(col.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  unassignTask(col.id);
+                                }}
                                 className="p-0.5 text-slate-400 hover:text-red-500 rounded shrink-0 cursor-pointer"
                                 title="Remover da tarefa"
                               >

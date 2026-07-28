@@ -41,6 +41,7 @@ export const SettingsView: React.FC = () => {
     showNotice,
     setOnlineSpreadsheetConfig,
     syncToOnlineSpreadsheet,
+    testWebhookConnection,
     exportLocalSpreadsheet,
     generateTemplateSpreadsheet,
     lastAutoBackupInfo,
@@ -74,6 +75,8 @@ export const SettingsView: React.FC = () => {
     state.onlineSpreadsheet?.autoSyncEnabled !== false
   );
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testDiag, setTestDiag] = useState<{ success: boolean; message: string; details?: string } | null>(null);
   const [showAppsScriptModal, setShowAppsScriptModal] = useState(false);
 
   // Catalog editing state
@@ -118,18 +121,12 @@ export const SettingsView: React.FC = () => {
     colorBg: string;
     colorAccent: string;
   }> = [
-    { id: 'slate', name: 'Slate Blue', category: 'Claro', colorBg: '#f8fafc', colorAccent: '#1d4ed8' },
-    { id: 'material-you', name: 'Material Steel', category: 'Material', colorBg: '#f4f6fa', colorAccent: '#005faf' },
-    { id: 'material-teal', name: 'Material Teal', category: 'Material', colorBg: '#f2f7f6', colorAccent: '#006a60' },
-    { id: 'material-terracotta', name: 'Material Warm', category: 'Material', colorBg: '#fbf7f4', colorAccent: '#a8381e' },
-    { id: 'sage-matte', name: 'Sálvia Opaco', category: 'Soft', colorBg: '#f4f6f4', colorAccent: '#386641' },
-    { id: 'nord-frost', name: 'Nord Frost', category: 'Soft', colorBg: '#eceff4', colorAccent: '#5e81ac' },
-    { id: 'emerald', name: 'Emerald', category: 'Claro', colorBg: '#f0fdf4', colorAccent: '#047857' },
-    { id: 'indigo', name: 'Indigo', category: 'Claro', colorBg: '#f5f3ff', colorAccent: '#4338ca' },
-    { id: 'material-dark', name: 'Material Dark', category: 'Escuro', colorBg: '#121318', colorAccent: '#80b5ff' },
-    { id: 'obsidian-dark', name: 'Obsidian', category: 'Escuro', colorBg: '#18181b', colorAccent: '#2dd4bf' },
-    { id: 'dark', name: 'Dark Midnight', category: 'Escuro', colorBg: '#090d16', colorAccent: '#3b82f6' },
-    { id: 'high-contrast', name: 'Alto Contraste', category: 'Acessível', colorBg: '#ffffff', colorAccent: '#000000' },
+    { id: 'emerald', name: 'Verde Esmeralda', category: 'Padrão', colorBg: '#f0fdf4', colorAccent: '#047857' },
+    { id: 'slate', name: 'Azul Corporativo', category: 'Claro', colorBg: '#f8fafc', colorAccent: '#1d4ed8' },
+    { id: 'indigo', name: 'Índigo Elegante', category: 'Claro', colorBg: '#f5f3ff', colorAccent: '#4338ca' },
+    { id: 'teal', name: 'Menta & Teal', category: 'Refrescante', colorBg: '#f2f7f6', colorAccent: '#006a60' },
+    { id: 'terracotta', name: 'Areia & Terracota', category: 'Editorial Warm', colorBg: '#fbf7f4', colorAccent: '#a8381e' },
+    { id: 'obsidian', name: 'Obsidian Dark', category: 'Modo Escuro', colorBg: '#18181b', colorAccent: '#2dd4bf' },
   ];
 
   const handleExportConfig = () => {
@@ -276,7 +273,7 @@ export const SettingsView: React.FC = () => {
               />
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[var(--line)] pt-3">
               <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[var(--ink)]">
                 <input
                   type="checkbox"
@@ -287,7 +284,34 @@ export const SettingsView: React.FC = () => {
                 <span>Sincronização Automática em Segundo Plano</span>
               </label>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsTesting(true);
+                    setTestDiag(null);
+                    // First save current config if entered
+                    if (sheetName.trim() && sheetUrl.trim()) {
+                      setOnlineSpreadsheetConfig({
+                        name: sheetName.trim(),
+                        url: sheetUrl.trim(),
+                        webhookUrl: webhookUrl.trim() || undefined,
+                        autoSyncEnabled: autoSync,
+                        lastSyncedAt: state.onlineSpreadsheet?.lastSyncedAt || '',
+                        syncCount: state.onlineSpreadsheet?.syncCount || 0,
+                      });
+                    }
+                    const res = await testWebhookConnection(webhookUrl);
+                    setTestDiag(res);
+                    setIsTesting(false);
+                  }}
+                  disabled={isTesting || !webhookUrl.trim()}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-lg flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors shadow-2xs"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
+                  <span>{isTesting ? 'Testando...' : 'Testar Conexão'}</span>
+                </button>
+
                 {state.onlineSpreadsheet && (
                   <button
                     type="button"
@@ -307,6 +331,24 @@ export const SettingsView: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {testDiag && (
+              <div className={`p-3 rounded-xl text-xs border ${
+                testDiag.success
+                  ? 'bg-emerald-50 text-emerald-950 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-100 dark:border-emerald-800'
+                  : 'bg-rose-50 text-rose-950 border-rose-300 dark:bg-rose-950/60 dark:text-rose-100 dark:border-rose-800'
+              }`}>
+                <div className="font-black flex items-center gap-1.5 mb-0.5">
+                  {testDiag.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <ShieldAlert className="w-4 h-4 text-rose-600" />}
+                  <span>{testDiag.message}</span>
+                </div>
+                {testDiag.details && (
+                  <p className="text-[11px] opacity-90 pl-5 leading-relaxed">
+                    {testDiag.details}
+                  </p>
+                )}
+              </div>
+            )}
           </form>
         </div>
 
@@ -359,7 +401,7 @@ export const SettingsView: React.FC = () => {
             <div className="flex items-center gap-3">
               <Presentation className={`w-5 h-5 ${state.showBriefingSlide !== false ? 'text-[var(--primary)]' : 'text-slate-400'}`} />
               <div>
-                <div className="text-xs font-extrabold">Slide Briefing 16:9</div>
+                <div className="text-xs font-extrabold">Montagem de Slide</div>
                 <div className="text-[10px] font-medium opacity-80">Apresentação para passagens de turno e reuniões de alinhamento</div>
               </div>
             </div>

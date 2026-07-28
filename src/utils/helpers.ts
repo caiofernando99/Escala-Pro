@@ -10,12 +10,17 @@ export function generateId(): string {
  * "MARIA DA SILVA" -> "Maria da Silva"
  */
 export function formatPersonName(name: string): string {
-  if (!name || !name.trim()) return '';
+  if (!name) return '';
+  if (!name.trim()) return name;
   const lowercasePrepositions = new Set(['de', 'da', 'do', 'dos', 'das', 'e', 'del', 'di']);
   
+  // Capture trailing whitespace so typing space doesn't get immediately swallowed
+  const trailingSpacesMatch = name.match(/\s+$/);
+  const trailingSpaces = trailingSpacesMatch ? trailingSpacesMatch[0] : '';
+
   const words = name.trim().split(/\s+/);
   
-  return words
+  const formatted = words
     .map((word, idx) => {
       if (!word) return '';
       const lower = word.toLowerCase();
@@ -25,6 +30,8 @@ export function formatPersonName(name: string): string {
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
     })
     .join(' ');
+
+  return formatted + trailingSpaces;
 }
 
 export function getTodayISO(): string {

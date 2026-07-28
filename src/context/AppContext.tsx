@@ -93,13 +93,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...c,
           name: formatPersonName(c.name),
         }));
+        const validThemes: ThemeOption[] = ['emerald', 'slate', 'indigo', 'teal', 'terracotta', 'obsidian'];
+        const currentTheme: ThemeOption = validThemes.includes(parsed.theme) ? parsed.theme : 'emerald';
         return {
           ...initialAppState,
           ...parsed,
           collaborators: formattedCols,
           processKnowledgeList: parsed.processKnowledgeList || initialAppState.processKnowledgeList,
           onlineSpreadsheet: isExampleSpreadsheet ? null : parsed.onlineSpreadsheet || null,
-          theme: parsed.theme || 'slate',
+          theme: currentTheme,
         };
       }
     } catch {
@@ -756,14 +758,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((prev) => {
       if (!prev.tasks.length) return prev;
       pushUndo(prev);
+      const activeShift = prev.selectedShiftFilter || 'ALL';
+      const activeTL = prev.selectedTLFilter || 'ALL';
+
       const activePeople = prev.collaborators.filter((c) => {
-        // active if not on vacation/leave/training and not scale off
-        const hasAbsence = (c.absences || []).some((a) => prev.selectedDate >= a.startDate && prev.selectedDate <= a.endDate);
-        const off = isScaleOff(prev.calendar, prev.selectedDate, c.scale);
-        const manual = prev.attendance[prev.selectedDate]?.[c.id];
-        if (hasAbsence) return false;
-        if (manual !== undefined) return manual;
-        return !off;
+        const colShift = c.shift || 'Geral';
+        const matchesShift = activeShift === 'ALL' || activeShift === 'todos' || colShift === activeShift;
+        const colTL = c.teamLeader || prev.defaultTeamLeader || 'Sem Time';
+        const matchesTL = activeTL === 'ALL' || activeTL === 'todos' || colTL === activeTL;
+        if (!matchesShift || !matchesTL) return false;
+
+        const statusInfo = getCollaboratorStatus(c, prev.selectedDate, prev);
+        return statusInfo.status === 'presente';
       });
 
       // Filter only active tasks
@@ -1509,7 +1515,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const absenteeismRate = totalCols > 0 ? ((absentCount / totalCols) * 100).toFixed(1) + '%' : '0%';
 
+      let spreadsheetId = '';
+      if (currentConfig.url) {
+        const match = currentConfig.url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (match) spreadsheetId = match[1];
+      }
+
       const payload = {
+        spreadsheetUrl: currentConfig.url || '',
+        spreadsheetId: spreadsheetId,
         rawState: {
           updatedAtMs: timestampMs,
           updatedAt: timestampStr,
@@ -1550,8 +1564,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           scale: c.scale || '',
           role: c.role || '',
           category: c.category || '',
-          skills: (c.skills || []).map((s) => `${s.skillName} (${s.level})`).join(', ') || 'Nenhuma',
-          status: c.status || 'Ativo',
+          skills: c.skills && typeof c.skills === 'object' && Object.keys(c.skills).length > 0 
+            ? Object.entries(c.skills).map(([sk, lv]) => `${sk} (${lv})`).join(', ') 
+            : 'Nenhuma',
+          status: 'Ativo',
         })),
         data: state.collaborators.map((c) => {
           const st = getCollaboratorStatus(c, state.selectedDate, state);
@@ -1669,6 +1685,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showNotice(detailedError);
       }
       return false;
+    }
+  };
+
+  const testWebhookConnection = async (webhookUrlInput?: string): Promise<{ success: boolean; message: string; details?: string }> => {
+    const url = (webhookUrlInput || state.onlineSpreadsheet?.webhookUrl || '').trim();
+    if (!url) {
+      return { success: false, message: 'Nenhuma URL de Webhook fornecida.' };
+    }
+
+    if (url.includes('docs.google.com/spreadsheets')) {
+      return {
+        success: false,
+        message: 'A URL informada é do Google Sheets, e não do Webhook do Apps Script.',
+        details: 'Cole a URL gerada em Apps Script -> Implantar -> Nova Implantação (começa com https://script.google.com/macros/s/.../exec).'
+      };
+    }
+
+    if (url.endsWith('/dev')) {
+      return {
+        success: false,
+        message: 'Sua URL termina em "/dev". É necessário usar a versão de produção "/exec".',
+        details: 'No Apps Script, clique em Implantar -> Gerenciar Implantações e copie a URL que termina em /exec.'
+      };
+    }
+
+    if (!url.includes('script.google.com/macros/s/')) {
+      return {
+        success: false,
+        message: 'Formato de URL do Webhook inválido.',
+        details: 'A URL do Web App deve ser no formato: https://script.google.com/macros/s/.../exec'
+      };
+    }
+
+    try {
+      const ok = await syncToOnlineSpreadsheet(false);
+      if (ok) {
+        return {
+          success: true,
+          message: 'Sincronização e conexão testadas com sucesso!',
+          details: 'Os dados foram enviados para o Google Apps Script e as abas da planilha foram atualizadas.'
+        };
+      } else {
+        return {
+          success: false,
+          message: 'Falha ao sincronizar com a planilha.',
+          details: state.onlineSpreadsheet?.lastError || 'Verifique se a opção "Quem tem acesso" no Apps Script está como "Qualquer pessoa" (Anyone).'
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: 'Erro durante o teste de conexão.',
+        details: err?.message || 'Erro ao comunicar com o Google Apps Script.'
+      };
     }
   };
 
@@ -1791,6 +1861,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setOnlineSpreadsheetConfig,
         syncToOnlineSpreadsheet,
         fetchFromOnlineSpreadsheet,
+        testWebhookConnection,
         exportLocalSpreadsheet,
         exportTeamRosterSpreadsheet,
         generateTemplateSpreadsheet,

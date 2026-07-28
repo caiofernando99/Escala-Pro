@@ -1140,7 +1140,7 @@ export const TeamView: React.FC = () => {
                           type="text"
                           value={c.name}
                           onChange={(e) => updateCollaborator(c.id, { name: e.target.value })}
-                          className="bg-transparent border-b border-transparent hover:border-[var(--line)] focus:border-[var(--primary)] px-1 py-0.5 w-full font-bold"
+                          className="bg-[var(--paper)] border border-[var(--line)] hover:border-[var(--primary-border)] focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] px-2 py-1 w-full font-bold text-[var(--ink)] rounded-lg shadow-2xs transition-all"
                         />
                       </td>
 
@@ -1152,14 +1152,14 @@ export const TeamView: React.FC = () => {
                             value={c.login || ''}
                             placeholder="LDAP"
                             onChange={(e) => updateCollaborator(c.id, { login: e.target.value })}
-                            className="bg-transparent border-b border-transparent hover:border-[var(--line)] focus:border-[var(--primary)] px-1 py-0.5 w-full text-[11px]"
+                            className="bg-[var(--paper)] border border-[var(--line)] hover:border-[var(--primary-border)] focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] px-2 py-0.5 w-full text-[11px] font-semibold text-[var(--ink)] rounded-md shadow-2xs transition-all"
                           />
                           <input
                             type="text"
                             value={c.registration || ''}
                             placeholder="RE (Matrícula)"
                             onChange={(e) => updateCollaborator(c.id, { registration: e.target.value })}
-                            className="bg-transparent border-b border-transparent hover:border-[var(--line)] focus:border-[var(--primary)] px-1 py-0.5 w-full text-[11px] text-[var(--muted)]"
+                            className="bg-[var(--paper)] border border-[var(--line)] hover:border-[var(--primary-border)] focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] px-2 py-0.5 w-full text-[11px] font-semibold text-[var(--ink)] rounded-md shadow-2xs transition-all"
                           />
                         </div>
                       </td>
@@ -1168,11 +1168,11 @@ export const TeamView: React.FC = () => {
                       <td className="p-2 min-w-[170px]">
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-[var(--muted)]">Turno:</span>
+                            <span className="text-[10px] font-extrabold text-[var(--ink)] shrink-0">Turno:</span>
                             <select
                               value={c.shift || 'Geral'}
                               onChange={(e) => updateCollaborator(c.id, { shift: e.target.value })}
-                              className="bg-[var(--bg)] border border-[var(--line)] rounded px-1.5 py-0.5 text-[11px] font-black text-[var(--primary)] w-full cursor-pointer"
+                              className="bg-[var(--paper)] border-2 border-[var(--line)] focus:border-[var(--primary)] rounded-md px-1.5 py-0.5 text-[11px] font-black text-[var(--ink)] w-full cursor-pointer shadow-2xs"
                             >
                               {availableShifts.map((s) => (
                                 <option key={s} value={s}>
@@ -1182,11 +1182,11 @@ export const TeamView: React.FC = () => {
                             </select>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-bold text-[var(--muted)]">TL:</span>
+                            <span className="text-[10px] font-extrabold text-[var(--ink)] shrink-0">TL:</span>
                             <select
                               value={colTL}
                               onChange={(e) => updateCollaborator(c.id, { teamLeader: e.target.value })}
-                              className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded px-1.5 py-0.5 font-extrabold text-[11px] text-emerald-950 dark:text-emerald-200 w-full cursor-pointer"
+                              className="bg-emerald-100 dark:bg-emerald-950/80 border-2 border-emerald-500 rounded-md px-1.5 py-0.5 font-black text-[11px] text-emerald-950 dark:text-emerald-100 w-full cursor-pointer shadow-2xs"
                             >
                               {(state.teamLeaders || []).map((tl) => (
                                 <option key={tl} value={tl}>
@@ -1203,7 +1203,7 @@ export const TeamView: React.FC = () => {
                         <select
                           value={c.scale}
                           onChange={(e) => updateCollaborator(c.id, { scale: e.target.value as ShiftGroup })}
-                          className="bg-[var(--bg)] border border-[var(--line)] rounded p-1 font-bold text-xs"
+                          className="bg-[var(--paper)] border-2 border-[var(--line)] focus:border-[var(--primary)] text-[var(--ink)] rounded-md p-1 font-black text-xs cursor-pointer shadow-2xs"
                         >
                           {SHIFT_GROUPS.map((grp) => (
                             <option key={grp} value={grp}>
@@ -1218,7 +1218,7 @@ export const TeamView: React.FC = () => {
                         <select
                           value={c.role}
                           onChange={(e) => updateCollaborator(c.id, { role: e.target.value })}
-                          className="bg-[var(--bg)] border border-[var(--line)] rounded p-1 font-semibold text-xs w-full"
+                          className="bg-[var(--paper)] border-2 border-[var(--line)] focus:border-[var(--primary)] text-[var(--ink)] rounded-md p-1 font-bold text-xs w-full cursor-pointer shadow-2xs"
                         >
                           <option value="">Selecione Cargo</option>
                           {state.roles.map((r) => (
@@ -1234,7 +1234,7 @@ export const TeamView: React.FC = () => {
                         <select
                           value={c.category}
                           onChange={(e) => updateCollaborator(c.id, { category: e.target.value })}
-                          className="bg-[var(--bg)] border border-[var(--line)] rounded p-1 font-semibold text-xs w-full"
+                          className="bg-[var(--paper)] border-2 border-[var(--line)] focus:border-[var(--primary)] text-[var(--ink)] rounded-md p-1 font-bold text-xs w-full cursor-pointer shadow-2xs"
                         >
                           <option value="">Selecione Categoria</option>
                           {state.categories.map((cat) => (
