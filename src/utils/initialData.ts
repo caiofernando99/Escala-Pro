@@ -244,6 +244,7 @@ export const initialAppState: AppState = {
         'Bipe o código EAN de forma individual',
         'Em caso de divergência, abra chamado de recontagem com o líder de turno'
       ],
+      imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
       iconName: 'CheckCircle2',
       active: true,
     },
@@ -258,6 +259,7 @@ export const initialAppState: AppState = {
         'Mantenha o volume próximo ao peito',
         'Evite torcer o tronco enquanto segura a carga'
       ],
+      imageUrl: 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=800&q=80',
       iconName: 'ShieldCheck',
       active: true,
     },
@@ -272,6 +274,7 @@ export const initialAppState: AppState = {
         'Evite obstruir corredores e áreas de trânsito',
         'Comunique imediatamente se houver avaria na doca'
       ],
+      imageUrl: 'https://images.unsplash.com/photo-1616401784845-180882ba9ba8?auto=format&fit=crop&w=800&q=80',
       iconName: 'Lightbulb',
       active: true,
     },
@@ -286,6 +289,7 @@ export const initialAppState: AppState = {
         'Registre o motivo no sistema de auditoria',
         'Nunca misture avarias com produtos em perfeito estado'
       ],
+      imageUrl: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80',
       iconName: 'AlertTriangle',
       active: true,
     },
@@ -300,8 +304,13 @@ export const initialAppState: AppState = {
         'Sele as bordas laterais para formar a estrutura em "H"',
         'Cole a etiqueta de envio em superfície plana sem dobras'
       ],
+      imageUrl: 'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=800&q=80',
       iconName: 'Sparkles',
       active: true,
     },
   ],
+  showBriefingSlide: true,
+  showEmployeePortal: true,
+  selectedShiftFilter: 'ALL',
+  selectedTLFilter: 'ALL',
 };

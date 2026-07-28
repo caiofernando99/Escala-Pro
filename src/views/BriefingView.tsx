@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import {
   Calendar,
@@ -29,9 +30,63 @@ import {
   LayoutGrid,
   GraduationCap,
   Info,
+  Image as ImageIcon,
+  Upload,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { formatDateBR, formatDateLongBR, getCollaboratorStatus } from '../utils/helpers';
 import { ProcessKnowledge, ProcessType } from '../types';
+
+// Preset operational images
+const PRESET_OPERATIONAL_IMAGES = [
+  { name: 'Estoque / Inventário', url: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Ergonomia / Segurança', url: 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Docas / Operação', url: 'https://images.unsplash.com/photo-1616401784845-180882ba9ba8?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Avarias / Inspeção', url: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Packing / Caixas', url: 'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Bipagem / Scanner', url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=800&q=80' },
+];
+
+/**
+ * Helper to compress image files locally before storing in state/Google Sheets DB.
+ * Resizes max width to 800px & 0.75 JPEG quality (~20-40KB), keeping payload ultralight!
+ */
+const compressImageFile = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxWidth = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        resolve(compressedDataUrl);
+      };
+      img.onerror = () => reject(new Error('Falha ao carregar a imagem'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+};
 
 export const BriefingView: React.FC = () => {
   const { state, addProcessKnowledge, updateProcessKnowledge, deleteProcessKnowledge } = useApp();
@@ -66,6 +121,8 @@ export const BriefingView: React.FC = () => {
   const [categoryInput, setCategoryInput] = useState('');
   const [descriptionInput, setDescriptionInput] = useState('');
   const [keyTakeawaysInput, setKeyTakeawaysInput] = useState('');
+  const [imageUrlInput, setImageUrlInput] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const activeDate = state.selectedDate;
 
@@ -169,6 +226,7 @@ export const BriefingView: React.FC = () => {
     setCategoryInput(state.sector || 'Operação');
     setDescriptionInput('');
     setKeyTakeawaysInput('');
+    setImageUrlInput('');
     setIsManageModalOpen(true);
   };
 
@@ -179,7 +237,22 @@ export const BriefingView: React.FC = () => {
     setCategoryInput(item.category);
     setDescriptionInput(item.description);
     setKeyTakeawaysInput((item.keyTakeaways || []).join('\n'));
+    setImageUrlInput(item.imageUrl || '');
     setIsManageModalOpen(true);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingImage(true);
+      const compressed = await compressImageFile(file);
+      setImageUrlInput(compressed);
+    } catch (err) {
+      alert('Erro ao carregar a imagem.');
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleSaveProcess = () => {
@@ -196,6 +269,7 @@ export const BriefingView: React.FC = () => {
         category: categoryInput.trim() || 'Geral',
         description: descriptionInput.trim(),
         keyTakeaways: takeaways,
+        imageUrl: imageUrlInput.trim() || undefined,
       });
     } else {
       addProcessKnowledge({
@@ -204,6 +278,7 @@ export const BriefingView: React.FC = () => {
         category: categoryInput.trim() || 'Geral',
         description: descriptionInput.trim(),
         keyTakeaways: takeaways,
+        imageUrl: imageUrlInput.trim() || undefined,
         active: true,
       });
     }
@@ -752,15 +827,36 @@ export const BriefingView: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Main Title & Explanation Display */}
-                  <div className="bg-[var(--bg)] border-2 border-[var(--line)] p-5 sm:p-6 rounded-2xl shadow-xs space-y-3 flex-grow flex flex-col justify-center">
-                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-[var(--ink)] leading-snug tracking-tight">
-                      {currentProcess.title}
-                    </h2>
+                  {/* Main Title, Description & Image Display Layout */}
+                  <div className="flex-grow flex flex-col lg:flex-row gap-3.5 items-stretch overflow-hidden">
+                    {/* Left/Main Column: Title & Explanation */}
+                    <div className={`bg-[var(--bg)] border-2 border-[var(--line)] p-4 sm:p-5 rounded-2xl shadow-xs flex flex-col justify-center space-y-2.5 ${currentProcess.imageUrl ? 'lg:w-7/12' : 'w-full'}`}>
+                      <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-[var(--ink)] leading-snug tracking-tight">
+                        {currentProcess.title}
+                      </h2>
 
-                    <p className="text-sm sm:text-base lg:text-lg font-medium text-[var(--ink)] leading-relaxed">
-                      {currentProcess.description}
-                    </p>
+                      <p className="text-xs sm:text-sm lg:text-base font-medium text-[var(--ink)] leading-relaxed">
+                        {currentProcess.description}
+                      </p>
+                    </div>
+
+                    {/* Right Column: Process Image Frame if image is attached */}
+                    {currentProcess.imageUrl && (
+                      <div className="lg:w-5/12 bg-black/5 dark:bg-white/5 border-2 border-[var(--line)] rounded-2xl overflow-hidden relative flex items-center justify-center p-1 group shadow-xs">
+                        <img
+                          src={currentProcess.imageUrl}
+                          alt={currentProcess.title}
+                          className="w-full h-full object-cover rounded-xl max-h-[190px] sm:max-h-[230px] lg:max-h-none transition-transform duration-300 group-hover:scale-102"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-xs text-white text-[10px] font-extrabold flex items-center gap-1.5 opacity-90 shadow-2xs">
+                          <ImageIcon className="w-3.5 h-3.5 text-purple-300" />
+                          <span>Anexo do Processo</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Key Takeaways / Points for Team Attention */}
@@ -887,7 +983,105 @@ export const BriefingView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Form Row 2 */}
+              {/* Form Row 2: Image Attachment Section */}
+              <div className="bg-[var(--bg)] border border-[var(--line)] p-3 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-[var(--ink)] flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-purple-600" />
+                    <span>Imagem do Processo / Procedimento (Opção Leve & Sincronizada)</span>
+                  </label>
+                  {imageUrlInput && (
+                    <button
+                      type="button"
+                      onClick={() => setImageUrlInput('')}
+                      className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer"
+                    >
+                      Remover Imagem
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-[var(--muted)] leading-tight">
+                  Adicione uma foto, ilustração ou fluxograma ao slide. Para manter a planilha leve no Google Sheets, comprimimos arquivos locais automaticamente ou você pode colar uma URL.
+                </p>
+
+                {/* Upload or URL Inputs */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  {/* File Upload Button */}
+                  <div className="sm:col-span-5 flex items-center">
+                    <label className="w-full flex items-center justify-center gap-2 p-2 bg-[var(--paper)] hover:bg-[var(--line)] border border-dashed border-[var(--line)] hover:border-purple-500 rounded-xl font-bold text-[var(--ink)] text-xs cursor-pointer transition-colors">
+                      <Upload className="w-4 h-4 text-purple-600" />
+                      <span>{isUploadingImage ? 'Comprimindo...' : 'Upload de Foto Local'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        disabled={isUploadingImage}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Or URL Input */}
+                  <div className="sm:col-span-7 flex items-center gap-1.5">
+                    <div className="relative flex-1">
+                      <LinkIcon className="w-3.5 h-3.5 text-[var(--muted)] absolute left-2.5 top-2.5" />
+                      <input
+                        type="url"
+                        value={imageUrlInput}
+                        onChange={(e) => setImageUrlInput(e.target.value)}
+                        placeholder="Cole o link da imagem (HTTPS / Imgur / Drive)..."
+                        className="w-full pl-8 pr-2 py-1.5 bg-[var(--paper)] border border-[var(--line)] rounded-xl font-medium text-[var(--ink)] text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Presets for Operational Images */}
+                <div className="pt-1">
+                  <span className="text-[10px] font-black text-[var(--muted)] uppercase tracking-wider block mb-1">
+                    Ou selecione um modelo operacional rápido:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRESET_OPERATIONAL_IMAGES.map((preset) => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => setImageUrlInput(preset.url)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                          imageUrlInput === preset.url
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                            : 'bg-[var(--paper)] text-[var(--ink)] border-[var(--line)] hover:border-purple-400'
+                        }`}
+                      >
+                        {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Image Preview Thumbnail */}
+                {imageUrlInput && (
+                  <div className="mt-2 flex items-center gap-3 p-2 bg-[var(--paper)] border border-[var(--line)] rounded-xl">
+                    <img
+                      src={imageUrlInput}
+                      alt="Preview"
+                      className="w-16 h-12 object-cover rounded-lg border border-[var(--line)]"
+                      onError={() => {}}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
+                        ✓ Imagem Vinculada ao Cartão
+                      </span>
+                      <span className="text-[10px] text-[var(--muted)] truncate block">
+                        {imageUrlInput.startsWith('data:') ? 'Imagem Local Comprimida (~30KB)' : imageUrlInput}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Form Row 3 */}
               <div>
                 <label className="block text-xs font-bold text-[var(--ink)] mb-1">
                   Explicação ou Descrição Detalhada para a Equipe *
@@ -901,7 +1095,7 @@ export const BriefingView: React.FC = () => {
                 />
               </div>
 
-              {/* Form Row 3 */}
+              {/* Form Row 4 */}
               <div>
                 <label className="block text-xs font-bold text-[var(--ink)] mb-1">
                   Pontos-Chave & Diretrizes da Equipe (1 por linha)
@@ -918,10 +1112,12 @@ export const BriefingView: React.FC = () => {
               {/* Action Button */}
               <div className="flex justify-end gap-2 pt-2 border-t border-[var(--line)]">
                 <button
+                  type="button"
                   onClick={() => {
                     setTitleInput('');
                     setDescriptionInput('');
                     setKeyTakeawaysInput('');
+                    setImageUrlInput('');
                     setEditingProcessId(null);
                   }}
                   className="px-3 py-1.5 bg-[var(--bg)] text-[var(--muted)] font-bold rounded-xl hover:text-[var(--ink)] cursor-pointer"
@@ -930,6 +1126,7 @@ export const BriefingView: React.FC = () => {
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleSaveProcess}
                   className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
@@ -952,6 +1149,13 @@ export const BriefingView: React.FC = () => {
                         key={p.id}
                         className="bg-[var(--bg)] border border-[var(--line)] p-3 rounded-xl flex items-center justify-between gap-3"
                       >
+                        {p.imageUrl && (
+                          <img
+                            src={p.imageUrl}
+                            alt=""
+                            className="w-10 h-10 object-cover rounded-lg shrink-0 border border-[var(--line)]"
+                          />
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${badge.bg}`}>
@@ -960,6 +1164,11 @@ export const BriefingView: React.FC = () => {
                             <span className="text-[10px] font-bold text-[var(--muted)]">
                               [{p.category}]
                             </span>
+                            {p.imageUrl && (
+                              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                                • com foto
+                              </span>
+                            )}
                           </div>
                           <h5 className="font-bold text-[var(--ink)] truncate">{p.title}</h5>
                           <p className="text-[11px] text-[var(--muted)] truncate">{p.description}</p>
@@ -967,6 +1176,7 @@ export const BriefingView: React.FC = () => {
 
                         <div className="flex items-center gap-1 shrink-0">
                           <button
+                            type="button"
                             onClick={() => handleOpenEditProcessModal(p)}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-lg cursor-pointer transition-colors"
                             title="Editar"
@@ -975,6 +1185,7 @@ export const BriefingView: React.FC = () => {
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => deleteProcessKnowledge(p.id)}
                             className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg cursor-pointer transition-colors"
                             title="Excluir"

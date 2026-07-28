@@ -140,24 +140,6 @@ export const Header: React.FC<HeaderProps> = ({ pageTitle, onOpenTutorial, onTog
           )}
         </div>
       </div>
-
-      {/* Notice Banner */}
-      {noticeMessage && (
-        <div className="mt-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-200 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between gap-2 shadow-2xs">
-          <div className="flex items-center gap-2 truncate">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-            <span className="truncate">{noticeMessage}</span>
-          </div>
-          {noticeActionLabel && onNoticeAction && (
-            <button
-              onClick={onNoticeAction}
-              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-black transition-colors shrink-0 cursor-pointer"
-            >
-              {noticeActionLabel}
-            </button>
-          )}
-        </div>
-      )}
     </header>
   );
 };

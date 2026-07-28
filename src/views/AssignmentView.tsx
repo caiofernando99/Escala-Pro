@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { SearchInput } from '../components/SearchInput';
 import {
@@ -35,12 +36,14 @@ export const AssignmentView: React.FC = () => {
     updateTask,
     undo,
     canUndo,
+    showNotice,
   } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [showInactiveTasks, setShowInactiveTasks] = useState(false);
+  const [isAutoAssigning, setIsAutoAssigning] = useState(false);
 
   // Guided Wizard Modal State
   const [showGuidedWizard, setShowGuidedWizard] = useState(false);
@@ -55,9 +58,17 @@ export const AssignmentView: React.FC = () => {
   const [showOtherTasks, setShowOtherTasks] = useState(false);
 
   const activeDate = state.selectedDate;
+  const activeShift = state.selectedShiftFilter || 'ALL';
+  const activeTL = state.selectedTLFilter || 'ALL';
 
   // Active present people today
   const presentPeople = state.collaborators.filter((c) => {
+    const colShift = c.shift || 'Geral';
+    const matchesShift = activeShift === 'ALL' || activeShift === 'todos' || colShift === activeShift;
+    const colTL = c.teamLeader || state.defaultTeamLeader || 'Sem Time';
+    const matchesTL = activeTL === 'ALL' || activeTL === 'todos' || colTL === activeTL;
+    if (!matchesShift || !matchesTL) return false;
+
     const statusInfo = getCollaboratorStatus(c, activeDate, state);
     return statusInfo.status === 'presente';
   });
@@ -87,6 +98,7 @@ export const AssignmentView: React.FC = () => {
     const id = e.dataTransfer.getData('text/plain') || draggedColId;
     if (id) {
       assignTask(id, taskId);
+      showNotice('Colaborador alocado para a tarefa!');
     }
     setDraggedColId(null);
   };
@@ -204,19 +216,29 @@ export const AssignmentView: React.FC = () => {
             </button>
 
             <button
-              onClick={clearAssignments}
-              className="px-2.5 py-1 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-[var(--bg)] text-[var(--ink)] cursor-pointer"
+              onClick={() => {
+                clearAssignments();
+                showNotice('Escala restaurada / alocações limpas.');
+              }}
+              className="px-2.5 py-1 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-[var(--bg)] text-[var(--ink)] cursor-pointer transition-transform active:scale-95"
             >
-              Limpar Tudo
+              Restaurar / Limpar Tudo
             </button>
 
-            <button
-              onClick={autoAssign}
+            <motion.button
+              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.03 }}
+              onClick={() => {
+                setIsAutoAssigning(true);
+                autoAssign();
+                showNotice('Tarefas auto-dimensionadas com sucesso!');
+                setTimeout(() => setIsAutoAssigning(false), 700);
+              }}
               className="px-3 py-1 bg-[var(--primary)] text-white text-xs font-black rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1 shadow-2xs cursor-pointer"
             >
-              <Shuffle className="w-3.5 h-3.5" />
+              <Shuffle className={`w-3.5 h-3.5 ${isAutoAssigning ? 'animate-spin' : ''}`} />
               <span>Auto Dimensionar</span>
-            </button>
+            </motion.button>
           </div>
         </div>
 
@@ -517,6 +539,7 @@ export const AssignmentView: React.FC = () => {
                         key={t.id}
                         onClick={() => {
                           assignTask(selectedCol.id, t.id);
+                          showNotice(`Colaborador ${selectedCol.name} alocado para ${t.name}!`);
                           setPopoverState(null);
                         }}
                         className="w-full text-left p-1.5 rounded-lg text-xs font-bold bg-[var(--bg)] hover:bg-[var(--primary)] hover:text-white transition-colors flex items-center justify-between group cursor-pointer border border-[var(--line)] hover:border-[var(--primary-border)] shadow-2xs"

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import {
   Users,
@@ -22,11 +23,12 @@ interface HomeViewProps {
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
-  const { state, setDate } = useApp();
-  const [selectedShift, setSelectedShift] = useState<string>('todos');
-  const [selectedTL, setSelectedTL] = useState<string>('todos');
+  const { state, setDate, setSelectedGlobalFilters } = useApp();
 
   const activeDate = state.selectedDate;
+
+  const selectedShift = state.selectedShiftFilter || 'ALL';
+  const selectedTL = state.selectedTLFilter || 'ALL';
 
   // Available unique shifts
   const defaultShifts = ['Geral', 'T1', 'T2', 'T3', 'T4', 'T5'];
@@ -38,8 +40,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
     const colShift = c.shift || 'Geral';
     const colTL = c.teamLeader || state.defaultTeamLeader || 'Sem Time';
 
-    const matchesShift = selectedShift === 'todos' || colShift === selectedShift;
-    const matchesTL = selectedTL === 'todos' || colTL === selectedTL;
+    const matchesShift = selectedShift === 'ALL' || selectedShift === 'todos' || colShift === selectedShift;
+    const matchesTL = selectedTL === 'ALL' || selectedTL === 'todos' || colTL === selectedTL;
 
     return matchesShift && matchesTL;
   });
@@ -48,10 +50,18 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
   const availableTLsForShift = Array.from(
     new Set(
       state.collaborators
-        .filter((c) => selectedShift === 'todos' || (c.shift || 'Geral') === selectedShift)
+        .filter((c) => selectedShift === 'ALL' || selectedShift === 'todos' || (c.shift || 'Geral') === selectedShift)
         .map((c) => c.teamLeader || state.defaultTeamLeader || 'Sem Time')
     )
   );
+
+  const handleShiftChange = (newShift: string) => {
+    setSelectedGlobalFilters({ shift: newShift, teamLeader: selectedTL });
+  };
+
+  const handleTLChange = (newTL: string) => {
+    setSelectedGlobalFilters({ shift: selectedShift, teamLeader: newTL });
+  };
 
   let presentCount = 0;
   let vacationCount = 0;
@@ -162,25 +172,27 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
             </div>
             <div>
               <h3 className="text-xs font-extrabold text-[var(--ink)] flex items-center gap-2">
-                <span>Identificação da Equipe e Turno</span>
-                {selectedShift !== 'todos' && (
+                <span>Identificação do Usuário (TL / Turno)</span>
+                {selectedShift !== 'ALL' && selectedShift !== 'todos' && (
                   <span className="px-1.5 py-0.2 bg-[var(--primary)] text-white rounded text-[9px] uppercase font-black">
                     Turno {selectedShift}
                   </span>
                 )}
+                {selectedTL !== 'ALL' && selectedTL !== 'todos' && (
+                  <span className="px-1.5 py-0.2 bg-emerald-600 text-white rounded text-[9px] font-black">
+                    {selectedTL}
+                  </span>
+                )}
               </h3>
               <p className="text-[11px] text-[var(--muted)]">
-                Selecione o seu Turno e o seu Time / TL para filtrar os indicadores e a equipe.
+                Configuração ativa para as demais telas da aplicação (Presença, Dimensionamento, Intervalos).
               </p>
             </div>
           </div>
 
-          {(selectedShift !== 'todos' || selectedTL !== 'todos') && (
+          {(selectedShift !== 'ALL' && selectedShift !== 'todos' || selectedTL !== 'ALL' && selectedTL !== 'todos') && (
             <button
-              onClick={() => {
-                setSelectedShift('todos');
-                setSelectedTL('todos');
-              }}
+              onClick={() => setSelectedGlobalFilters({ shift: 'ALL', teamLeader: 'ALL' })}
               className="px-2.5 py-1 bg-amber-500/10 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20 text-[11px] font-extrabold rounded-lg transition-colors border border-amber-500/30 self-start sm:self-center cursor-pointer shrink-0"
             >
               Limpar Filtros
@@ -195,13 +207,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
               <span className="text-[var(--muted)] font-bold text-[11px] px-1">Turno:</span>
               <select
                 value={selectedShift}
-                onChange={(e) => {
-                  setSelectedShift(e.target.value);
-                  setSelectedTL('todos');
-                }}
+                onChange={(e) => handleShiftChange(e.target.value)}
                 className="bg-[var(--paper)] border border-[var(--line)] rounded-md px-2 py-0.5 text-[var(--ink)] font-black text-xs cursor-pointer focus:ring-1 focus:ring-[var(--primary)]"
               >
-                <option value="todos">Todos os Turnos</option>
+                <option value="ALL">Todos os Turnos</option>
                 {availableShifts.map((s) => (
                   <option key={s} value={s}>
                     Turno {s}
@@ -215,11 +224,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
               <span className="text-[var(--muted)] font-bold text-[11px] px-1">Time / TL:</span>
               <select
                 value={selectedTL}
-                onChange={(e) => setSelectedTL(e.target.value)}
+                onChange={(e) => handleTLChange(e.target.value)}
                 className="bg-[var(--paper)] border border-[var(--line)] rounded-md px-2 py-0.5 text-[var(--ink)] font-black text-xs cursor-pointer focus:ring-1 focus:ring-[var(--primary)]"
               >
-                <option value="todos">
-                  {selectedShift !== 'todos' ? `Todos do Turno ${selectedShift}` : 'Todos os Times'}
+                <option value="ALL">
+                  {selectedShift !== 'ALL' && selectedShift !== 'todos' ? `Todos do Turno ${selectedShift}` : 'Todos os Times'}
                 </option>
                 {availableTLsForShift.map((tl) => (
                   <option key={tl} value={tl}>
@@ -242,25 +251,25 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-        <div className="bg-[var(--paper)] border border-emerald-300 dark:border-emerald-800 p-3 rounded-xl shadow-2xs">
+        <motion.div whileHover={{ y: -2, scale: 1.01 }} className="bg-[var(--paper)] border border-emerald-300 dark:border-emerald-800 p-3 rounded-xl shadow-2xs">
           <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-300 font-extrabold mb-0.5">
             <span className="text-[10px] uppercase tracking-wider">Presentes</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="text-2xl font-black text-[var(--ink)]">{presentCount}</div>
           <p className="text-[10px] text-[var(--muted)] font-medium mt-0.5">Ativos hoje</p>
-        </div>
+        </motion.div>
 
-        <div className="bg-[var(--paper)] border border-purple-300 dark:border-purple-800 p-3 rounded-xl shadow-2xs">
+        <motion.div whileHover={{ y: -2, scale: 1.01 }} className="bg-[var(--paper)] border border-purple-300 dark:border-purple-800 p-3 rounded-xl shadow-2xs">
           <div className="flex items-center justify-between text-purple-800 dark:text-purple-300 font-extrabold mb-0.5">
             <span className="text-[10px] uppercase tracking-wider">Férias</span>
             <Palmtree className="w-4 h-4 text-purple-600 dark:text-purple-400" />
           </div>
           <div className="text-2xl font-black text-[var(--ink)]">{vacationCount}</div>
           <p className="text-[10px] text-[var(--muted)] font-medium mt-0.5">Programadas</p>
-        </div>
+        </motion.div>
 
-        <div className="bg-[var(--paper)] border border-amber-300 dark:border-amber-800 p-3 rounded-xl shadow-2xs">
+        <motion.div whileHover={{ y: -2, scale: 1.01 }} className="bg-[var(--paper)] border border-amber-300 dark:border-amber-800 p-3 rounded-xl shadow-2xs">
           <div className="flex items-center justify-between text-amber-800 dark:text-amber-300 font-extrabold mb-0.5">
             <span className="text-[10px] uppercase tracking-wider">Licen. / Trein.</span>
             <div className="flex gap-1 text-amber-600 dark:text-amber-400">
@@ -269,16 +278,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
           </div>
           <div className="text-2xl font-black text-[var(--ink)]">{leaveCount + trainingCount}</div>
           <p className="text-[10px] text-[var(--muted)] font-medium mt-0.5">Médico / Treino</p>
-        </div>
+        </motion.div>
 
-        <div className="bg-[var(--paper)] border border-red-300 dark:border-red-800 p-3 rounded-xl shadow-2xs">
+        <motion.div whileHover={{ y: -2, scale: 1.01 }} className="bg-[var(--paper)] border border-red-300 dark:border-red-800 p-3 rounded-xl shadow-2xs">
           <div className="flex items-center justify-between text-red-800 dark:text-red-300 font-extrabold mb-0.5">
             <span className="text-[10px] uppercase tracking-wider">Ausentes</span>
             <UserX className="w-4 h-4 text-red-600 dark:text-red-400" />
           </div>
           <div className="text-2xl font-black text-[var(--ink)]">{absentCount}</div>
           <p className="text-[10px] text-[var(--muted)] font-medium mt-0.5">Faltas no dia</p>
-        </div>
+        </motion.div>
 
         <div className="bg-[var(--paper)] border border-[var(--primary-border)] p-3 rounded-xl shadow-2xs col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between text-[var(--primary)] font-extrabold mb-0.5">

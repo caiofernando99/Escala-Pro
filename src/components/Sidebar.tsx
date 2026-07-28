@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import {
   Home,
   Calendar,
@@ -37,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { state, toggleSidebarCollapsed } = useApp();
   const isCollapsed = Boolean(state.isSidebarCollapsed);
 
-  const navItems = [
+  const rawNavItems = [
     { id: 'home', label: 'Visão geral', icon: Home },
     { id: 'calendar', label: 'Calendário anual', icon: Calendar },
     { id: 'team', label: 'Equipe e cadastros', icon: Users },
@@ -51,6 +52,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings', label: 'Configurações', icon: Settings },
     { id: 'help', label: 'Ajuda', icon: HelpCircle },
   ];
+
+  const navItems = rawNavItems.filter((item) => {
+    if (item.id === 'briefing' && state.showBriefingSlide === false) return false;
+    if (item.id === 'portal' && state.showEmployeePortal === false) return false;
+    return true;
+  });
 
   const handleSelect = (id: string) => {
     onNavigate(id);
@@ -66,8 +73,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const Icon = item.icon;
           const isActive = currentView === item.id;
           return (
-            <button
+            <motion.button
               key={item.id}
+              whileHover={{ scale: 1.02, x: isCollapsed ? 0 : 2 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => handleSelect(item.id)}
               title={isCollapsed ? item.label : undefined}
               className={`w-full flex items-center gap-3 rounded-xl transition-all duration-150 cursor-pointer ${
@@ -82,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white' : 'text-white/70'}`} />
               {!isCollapsed && <span className="truncate">{item.label}</span>}
-            </button>
+            </motion.button>
           );
         })}
       </nav>
@@ -116,6 +125,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isCollapsed && <span className="truncate font-semibold">Armazenamento Local Ativo</span>}
         </div>
       )}
+
+      {/* Discreet Version Tag at bottom of sidebar */}
+      <div className={`pt-2 text-[10px] text-white/40 font-mono font-medium tracking-wide border-t border-white/5 shrink-0 ${isCollapsed ? 'text-center' : 'px-2'}`}>
+        EscalaPro v3.2
+      </div>
     </>
   );
 

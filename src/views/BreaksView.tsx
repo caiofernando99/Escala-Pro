@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { SearchInput } from '../components/SearchInput';
 import { MultiSelectFilter } from '../components/MultiSelectFilter';
@@ -37,6 +38,8 @@ export const BreaksView: React.FC = () => {
   const [dragOverTopSlotId, setDragOverTopSlotId] = useState<string | null>(null);
 
   const activeDate = state.selectedDate;
+  const activeShift = state.selectedShiftFilter || 'ALL';
+  const activeTL = state.selectedTLFilter || 'ALL';
   const dayIntervals = state.intervals[activeDate] || {};
 
   // Unique roles and categories for multi-select filters
@@ -48,6 +51,12 @@ export const BreaksView: React.FC = () => {
 
   // Active present people (includes manual presence overrides e.g. troca de folga)
   const presentPeople = state.collaborators.filter((c) => {
+    const colShift = c.shift || 'Geral';
+    const matchesShift = activeShift === 'ALL' || activeShift === 'todos' || colShift === activeShift;
+    const colTL = c.teamLeader || state.defaultTeamLeader || 'Sem Time';
+    const matchesTL = activeTL === 'ALL' || activeTL === 'todos' || colTL === activeTL;
+    if (!matchesShift || !matchesTL) return false;
+
     const statusInfo = getCollaboratorStatus(c, activeDate, state);
     return statusInfo.status === 'presente';
   });
@@ -141,7 +150,9 @@ export const BreaksView: React.FC = () => {
             </button>
           </div>
 
-          <button
+          <motion.button
+            whileTap={{ scale: 0.93 }}
+            whileHover={{ scale: 1.03 }}
             onClick={() => {
               generateBreaks();
               showNotice('Intervalos gerados e rebalanceados com sucesso!');
@@ -150,7 +161,7 @@ export const BreaksView: React.FC = () => {
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Gerar / Rebalancear Todos</span>
-          </button>
+          </motion.button>
         </div>
       </div>
 

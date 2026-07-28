@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { FileSpreadsheet, Link as LinkIcon, Download, Check, X, Shield, RefreshCw, ExternalLink } from 'lucide-react';
+import { FileSpreadsheet, Link as LinkIcon, Download, Check, X, Shield, RefreshCw, Code2 } from 'lucide-react';
+import { AppsScriptModal } from './AppsScriptModal';
 
 interface ConnectSpreadsheetModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const ConnectSpreadsheetModal: React.FC<ConnectSpreadsheetModalProps> = (
   const [webhookUrl, setWebhookUrl] = useState(currentConfig?.webhookUrl || '');
   const [autoSync, setAutoSync] = useState<boolean>(currentConfig?.autoSyncEnabled !== false);
   const [isTesting, setIsTesting] = useState(false);
+  const [showAppsScriptModal, setShowAppsScriptModal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -108,38 +110,49 @@ export const ConnectSpreadsheetModal: React.FC<ConnectSpreadsheetModalProps> = (
           </div>
 
           <div className="space-y-1.5 pt-1">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="text-xs font-bold text-[var(--ink)] uppercase tracking-wider block">
                 URL do Webhook (Google Apps Script — Opcional)
               </label>
-              {webhookUrl.trim() && (
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (webhookUrl.includes('docs.google.com/spreadsheets')) {
-                      showNotice('A URL do Webhook deve ser o link do Web App do Apps Script (iniciando com https://script.google.com/macros/s/.../exec) e não o link da planilha.');
-                      return;
-                    }
-                    setIsTesting(true);
-                    setOnlineSpreadsheetConfig({
-                      name: name.trim() || 'Planilha Oficial',
-                      url: url.trim() || 'https://docs.google.com',
-                      webhookUrl: webhookUrl.trim(),
-                      autoSyncEnabled: autoSync,
-                    });
-                    const success = await useApp().syncToOnlineSpreadsheet();
-                    setIsTesting(false);
-                    if (success) {
-                      showNotice('Conexão testada e aprovada! Planilha atualizada na nuvem.');
-                    }
-                  }}
-                  disabled={isTesting}
-                  className="px-2.5 py-1 bg-[var(--primary-soft)] hover:bg-[var(--line)] text-[var(--primary)] text-[11px] font-extrabold rounded-lg border border-[var(--primary-border)] flex items-center gap-1.5 transition-colors cursor-pointer"
+                  onClick={() => setShowAppsScriptModal(true)}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
                 >
-                  <RefreshCw className={`w-3 h-3 ${isTesting ? 'animate-spin' : ''}`} />
-                  <span>{isTesting ? 'Testando...' : 'Testar Conexão'}</span>
+                  <Code2 className="w-3.5 h-3.5" />
+                  <span>Ver Passo a Passo / Copiar Código</span>
                 </button>
-              )}
+
+                {webhookUrl.trim() && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (webhookUrl.includes('docs.google.com/spreadsheets')) {
+                        showNotice('A URL do Webhook deve ser o link do Web App do Apps Script (iniciando com https://script.google.com/macros/s/.../exec) e não o link da planilha.');
+                        return;
+                      }
+                      setIsTesting(true);
+                      setOnlineSpreadsheetConfig({
+                        name: name.trim() || 'Planilha Oficial',
+                        url: url.trim() || 'https://docs.google.com',
+                        webhookUrl: webhookUrl.trim(),
+                        autoSyncEnabled: autoSync,
+                      });
+                      const success = await useApp().syncToOnlineSpreadsheet();
+                      setIsTesting(false);
+                      if (success) {
+                        showNotice('Conexão testada e aprovada! Planilha atualizada na nuvem.');
+                      }
+                    }}
+                    disabled={isTesting}
+                    className="px-2.5 py-1 bg-[var(--primary-soft)] hover:bg-[var(--line)] text-[var(--primary)] text-[11px] font-extrabold rounded-lg border border-[var(--primary-border)] flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isTesting ? 'animate-spin' : ''}`} />
+                    <span>{isTesting ? 'Testando...' : 'Testar Conexão'}</span>
+                  </button>
+                )}
+              </div>
             </div>
             <input
               type="url"
@@ -236,6 +249,12 @@ export const ConnectSpreadsheetModal: React.FC<ConnectSpreadsheetModalProps> = (
           </div>
         </form>
       </div>
+
+      {/* Apps Script Guide Modal */}
+      <AppsScriptModal
+        isOpen={showAppsScriptModal}
+        onClose={() => setShowAppsScriptModal(false)}
+      />
     </div>
   );
 };

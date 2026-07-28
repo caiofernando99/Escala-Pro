@@ -42,6 +42,10 @@ interface AppContextType {
   generateBreaks: () => void;
   addCatalogItem: (key: 'roles' | 'categories' | 'skills', item: string) => void;
   removeCatalogItem: (key: 'roles' | 'categories' | 'skills', item: string) => void;
+  editCatalogItem: (key: 'roles' | 'categories' | 'skills', oldItem: string, newItem: string) => void;
+  editTeamLeader: (oldName: string, newName: string) => void;
+  setSelectedGlobalFilters: (filters: { shift?: string; teamLeader?: string }) => void;
+  setModuleVisibility: (modules: { showBriefingSlide?: boolean; showEmployeePortal?: boolean }) => void;
   setSkillLevel: (collaboratorId: string, skill: string, level: number) => void;
   setAbsenceReason: (collaboratorId: string, reason: string) => void;
   setOccurrence: (collaboratorId: string, text: string) => void;
@@ -361,10 +365,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       notes: customProps?.notes || '',
       absences: customProps?.absences || [],
     };
-    setState((prev) => ({
-      ...prev,
-      collaborators: [...prev.collaborators, newCol],
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        collaborators: [...prev.collaborators, newCol],
+      };
+    });
     showNotice('Novo colaborador cadastrado.');
   };
 
@@ -372,6 +379,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const clean = name.trim();
     if (!clean) return;
     setState((prev) => {
+      pushUndo(prev);
       const current = prev.teamLeaders || [];
       if (current.includes(clean)) return prev;
       return {
@@ -385,6 +393,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const removeTeamLeader = (name: string) => {
     setState((prev) => {
+      pushUndo(prev);
       const current = prev.teamLeaders || [];
       const updated = current.filter((t) => t !== name);
       return {
@@ -401,10 +410,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (formattedUpdates.name) {
       formattedUpdates.name = formatPersonName(formattedUpdates.name);
     }
-    setState((prev) => ({
-      ...prev,
-      collaborators: prev.collaborators.map((c) => (c.id === id ? { ...c, ...formattedUpdates } : c)),
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        collaborators: prev.collaborators.map((c) => (c.id === id ? { ...c, ...formattedUpdates } : c)),
+      };
+    });
   };
 
   const addProcessKnowledge = (item: Omit<ProcessKnowledge, 'id'>) => {
@@ -515,34 +527,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...absence,
       id: generateId(),
     };
-    setState((prev) => ({
-      ...prev,
-      collaborators: prev.collaborators.map((c) => {
-        if (c.id === collaboratorId) {
-          return {
-            ...c,
-            absences: [...(c.absences || []), newAbsence],
-          };
-        }
-        return c;
-      }),
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        collaborators: prev.collaborators.map((c) => {
+          if (c.id === collaboratorId) {
+            return {
+              ...c,
+              absences: [...(c.absences || []), newAbsence],
+            };
+          }
+          return c;
+        }),
+      };
+    });
     showNotice('Afastamento (Férias/Licença/Treinamento) cadastrado.');
   };
 
   const removeScheduledAbsence = (collaboratorId: string, absenceId: string) => {
-    setState((prev) => ({
-      ...prev,
-      collaborators: prev.collaborators.map((c) => {
-        if (c.id === collaboratorId) {
-          return {
-            ...c,
-            absences: (c.absences || []).filter((a) => a.id !== absenceId),
-          };
-        }
-        return c;
-      }),
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        collaborators: prev.collaborators.map((c) => {
+          if (c.id === collaboratorId) {
+            return {
+              ...c,
+              absences: (c.absences || []).filter((a) => a.id !== absenceId),
+            };
+          }
+          return c;
+        }),
+      };
+    });
     showNotice('Afastamento removido.');
   };
 
@@ -555,25 +573,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       allowedRoles,
       allowedCategories,
     };
-    setState((prev) => ({
-      ...prev,
-      tasks: [...prev.tasks, newTask],
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        tasks: [...prev.tasks, newTask],
+      };
+    });
     showNotice(`Tarefa "${name}" adicionada.`);
   };
 
   const updateTask = (id: string, updates: Partial<Task>) => {
-    setState((prev) => ({
-      ...prev,
-      tasks: prev.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        tasks: prev.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+      };
+    });
   };
 
   const deleteTask = (id: string) => {
-    setState((prev) => ({
-      ...prev,
-      tasks: prev.tasks.filter((t) => t.id !== id),
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        tasks: prev.tasks.filter((t) => t.id !== id),
+      };
+    });
     showNotice('Tarefa excluída.');
   };
 
@@ -584,30 +611,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       shift: shift || state.teamShift || 'T2',
       capacity: capacity || undefined,
     };
-    setState((prev) => ({
-      ...prev,
-      breaks: [...prev.breaks, newSlot],
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        breaks: [...prev.breaks, newSlot],
+      };
+    });
     showNotice('Horário de intervalo adicionado.');
   };
 
   const updateBreakSlot = (id: string, updates: Partial<BreakSlot>) => {
-    setState((prev) => ({
-      ...prev,
-      breaks: prev.breaks.map((b) => (b.id === id ? { ...b, ...updates } : b)),
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        breaks: prev.breaks.map((b) => (b.id === id ? { ...b, ...updates } : b)),
+      };
+    });
   };
 
   const deleteBreakSlot = (id: string) => {
-    setState((prev) => ({
-      ...prev,
-      breaks: prev.breaks.filter((b) => b.id !== id),
-    }));
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        breaks: prev.breaks.filter((b) => b.id !== id),
+      };
+    });
     showNotice('Horário de intervalo removido.');
   };
 
   const markDayScale = (dateStr: string, scale: ShiftGroup | '') => {
     setState((prev) => {
+      pushUndo(prev);
       const newCal = { ...prev.calendar };
       if (scale) {
         newCal[dateStr] = scale;
@@ -640,6 +677,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const toggleAttendance = (collaboratorId: string, present: boolean) => {
     setState((prev) => {
+      pushUndo(prev);
       const dateKey = prev.selectedDate;
       const dayAtt = { ...(prev.attendance[dateKey] || {}) };
       dayAtt[collaboratorId] = present;
@@ -655,6 +693,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resetAttendance = () => {
     setState((prev) => {
+      pushUndo(prev);
       const dateKey = prev.selectedDate;
       const newAtt = { ...prev.attendance };
       delete newAtt[dateKey];
@@ -760,6 +799,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const moveBreakInterval = (collaboratorId: string, fromBreakId: string | null, toBreakId: string | null) => {
     setState((prev) => {
+      pushUndo(prev);
       const dateKey = prev.selectedDate;
       const dayIntervals = { ...(prev.intervals[dateKey] || {}) };
 
@@ -783,6 +823,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const generateBreaks = () => {
     setState((prev) => {
+      pushUndo(prev);
       if (!prev.breaks.length) return prev;
       const dateKey = prev.selectedDate;
       const result: Record<string, string[]> = Object.fromEntries(prev.breaks.map((b) => [b.id, []]));
@@ -836,6 +877,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const trimmed = item.trim();
     if (!trimmed) return;
     setState((prev) => {
+      pushUndo(prev);
       if (prev[key].includes(trimmed)) return prev;
       return { ...prev, [key]: [...prev[key], trimmed] };
     });
@@ -843,11 +885,99 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const removeCatalogItem = (key: 'roles' | 'categories' | 'skills', item: string) => {
+    setState((prev) => {
+      pushUndo(prev);
+      return {
+        ...prev,
+        [key]: prev[key].filter((i) => i !== item),
+      };
+    });
+    showNotice('Item removido.');
+  };
+
+  const editCatalogItem = (key: 'roles' | 'categories' | 'skills', oldItem: string, newItem: string) => {
+    const trimmed = newItem.trim();
+    if (!trimmed || trimmed === oldItem) return;
+    setState((prev) => {
+      pushUndo(prev);
+      const updatedList = prev[key].map((item) => (item === oldItem ? trimmed : item));
+      let updatedCollaborators = prev.collaborators;
+      let updatedTasks = prev.tasks;
+
+      if (key === 'roles') {
+        updatedCollaborators = prev.collaborators.map((c) =>
+          c.role === oldItem ? { ...c, role: trimmed } : c
+        );
+        updatedTasks = prev.tasks.map((t) => ({
+          ...t,
+          allowedRoles: (t.allowedRoles || []).map((r) => (r === oldItem ? trimmed : r)),
+        }));
+      } else if (key === 'categories') {
+        updatedCollaborators = prev.collaborators.map((c) =>
+          c.category === oldItem ? { ...c, category: trimmed } : c
+        );
+        updatedTasks = prev.tasks.map((t) => ({
+          ...t,
+          allowedCategories: (t.allowedCategories || []).map((cat) => (cat === oldItem ? trimmed : cat)),
+        }));
+      } else if (key === 'skills') {
+        updatedCollaborators = prev.collaborators.map((c) => {
+          if (c.skills && oldItem in c.skills) {
+            const newSkills = { ...c.skills, [trimmed]: c.skills[oldItem] };
+            delete newSkills[oldItem];
+            return { ...c, skills: newSkills };
+          }
+          return c;
+        });
+      }
+
+      return {
+        ...prev,
+        [key]: updatedList,
+        collaborators: updatedCollaborators,
+        tasks: updatedTasks,
+      };
+    });
+    showNotice(`Item renomeado de "${oldItem}" para "${trimmed}".`);
+  };
+
+  const editTeamLeader = (oldName: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) return;
+    setState((prev) => {
+      pushUndo(prev);
+      const updatedLeaders = (prev.teamLeaders || []).map((tl) => (tl === oldName ? trimmed : tl));
+      const updatedDefault = prev.defaultTeamLeader === oldName ? trimmed : prev.defaultTeamLeader;
+      const updatedCollaborators = prev.collaborators.map((c) =>
+        c.teamLeader === oldName ? { ...c, teamLeader: trimmed } : c
+      );
+      return {
+        ...prev,
+        teamLeaders: updatedLeaders,
+        defaultTeamLeader: updatedDefault,
+        collaborators: updatedCollaborators,
+      };
+    });
+    showNotice(`Time / TL renomeado para "${trimmed}".`);
+  };
+
+  const setSelectedGlobalFilters = (filters: { shift?: string; teamLeader?: string }) => {
     setState((prev) => ({
       ...prev,
-      [key]: prev[key].filter((i) => i !== item),
+      selectedShiftFilter: filters.shift !== undefined ? filters.shift : prev.selectedShiftFilter,
+      selectedTLFilter: filters.teamLeader !== undefined ? filters.teamLeader : prev.selectedTLFilter,
+      teamShift: filters.shift && filters.shift !== 'ALL' && filters.shift !== 'todos' ? filters.shift : prev.teamShift,
+      defaultTeamLeader: filters.teamLeader && filters.teamLeader !== 'ALL' && filters.teamLeader !== 'todos' ? filters.teamLeader : prev.defaultTeamLeader,
     }));
-    showNotice('Item removido.');
+  };
+
+  const setModuleVisibility = (modules: { showBriefingSlide?: boolean; showEmployeePortal?: boolean }) => {
+    setState((prev) => ({
+      ...prev,
+      showBriefingSlide: modules.showBriefingSlide !== undefined ? modules.showBriefingSlide : prev.showBriefingSlide,
+      showEmployeePortal: modules.showEmployeePortal !== undefined ? modules.showEmployeePortal : prev.showEmployeePortal,
+    }));
+    showNotice('Visibilidade dos módulos atualizada com sucesso.');
   };
 
   const setSkillLevel = (collaboratorId: string, skill: string, level: number) => {
@@ -1634,6 +1764,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         generateBreaks,
         addCatalogItem,
         removeCatalogItem,
+        editCatalogItem,
+        editTeamLeader,
+        setSelectedGlobalFilters,
+        setModuleVisibility,
         setSkillLevel,
         setAbsenceReason,
         setOccurrence,

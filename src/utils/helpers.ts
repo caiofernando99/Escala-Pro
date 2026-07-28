@@ -166,8 +166,10 @@ export function matchesSearch(text: string | undefined | null, search: string): 
  */
 export function encodeSharedState(state: AppState): string {
   try {
+    const selDate = state.selectedDate || new Date().toISOString().split('T')[0];
     const snapshot = {
-      date: state.selectedDate,
+      selectedDate: selDate,
+      date: selDate,
       teamName: state.teamName,
       sector: state.sector,
       manager: state.manager,
@@ -177,9 +179,9 @@ export function encodeSharedState(state: AppState): string {
       collaborators: state.collaborators,
       tasks: state.tasks,
       breaks: state.breaks,
-      intervals: state.intervals[state.selectedDate] || {},
+      intervals: state.intervals || {},
+      attendance: state.attendance || {},
       calendar: state.calendar,
-      attendance: state.attendance[state.selectedDate] || {},
     };
     const jsonStr = JSON.stringify(snapshot);
     const utf8Bytes = new TextEncoder().encode(jsonStr);
@@ -208,7 +210,51 @@ export function decodeSharedState(encoded: string): any | null {
       bytes[i] = binary.charCodeAt(i);
     }
     const jsonStr = new TextDecoder().decode(bytes);
-    return JSON.parse(jsonStr);
+    const parsed = JSON.parse(jsonStr);
+
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    const activeDate = parsed.selectedDate || parsed.date || new Date().toISOString().split('T')[0];
+
+    // Normalize intervals structure so state.intervals[activeDate] is always available
+    let rawIntervals = parsed.intervals || {};
+    let normalizedIntervals: Record<string, Record<string, string[]>> = {};
+
+    if (rawIntervals[activeDate]) {
+      normalizedIntervals = rawIntervals;
+    } else {
+      // Check if rawIntervals is flat { [breakId]: [collabIds] }
+      const keys = Object.keys(rawIntervals);
+      const isFlat = keys.some(k => k.startsWith('break-') || !k.includes('-'));
+      if (isFlat) {
+        normalizedIntervals = { [activeDate]: rawIntervals };
+      } else {
+        normalizedIntervals = rawIntervals;
+      }
+    }
+
+    // Normalize attendance structure so state.attendance[activeDate] is always available
+    let rawAttendance = parsed.attendance || {};
+    let normalizedAttendance: Record<string, Record<string, boolean>> = {};
+
+    if (rawAttendance[activeDate]) {
+      normalizedAttendance = rawAttendance;
+    } else {
+      const keys = Object.keys(rawAttendance);
+      const isFlat = keys.some(k => !k.match(/^\d{4}-\d{2}-\d{2}$/));
+      if (isFlat) {
+        normalizedAttendance = { [activeDate]: rawAttendance };
+      } else {
+        normalizedAttendance = rawAttendance;
+      }
+    }
+
+    return {
+      ...parsed,
+      selectedDate: activeDate,
+      intervals: normalizedIntervals,
+      attendance: normalizedAttendance,
+    };
   } catch (err) {
     console.error('Failed to decode shared state:', err);
     return null;

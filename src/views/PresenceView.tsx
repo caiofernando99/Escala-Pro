@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { SearchInput } from '../components/SearchInput';
 import { MultiSelectFilter } from '../components/MultiSelectFilter';
@@ -18,14 +19,19 @@ import {
 import { getCollaboratorStatus, matchesSearch, formatDateBR } from '../utils/helpers';
 
 export const PresenceView: React.FC = () => {
-  const { state, toggleAttendance, resetAttendance, setAbsenceReason } = useApp();
+  const { state, toggleAttendance, resetAttendance, setAbsenceReason, showNotice } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTLs, setSelectedTLs] = useState<string[]>([]);
+  const [selectedTLs, setSelectedTLs] = useState<string[]>(
+    state.selectedTLFilter && state.selectedTLFilter !== 'ALL' && state.selectedTLFilter !== 'todos'
+      ? [state.selectedTLFilter]
+      : []
+  );
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState<'cargo_categoria' | 'cargo' | 'categoria' | 'geral'>('cargo_categoria');
 
   const activeDate = state.selectedDate;
+  const activeShift = state.selectedShiftFilter || 'ALL';
 
   // Options for multi-select filters
   const teamLeaders = state.teamLeaders || [];
@@ -40,11 +46,13 @@ export const PresenceView: React.FC = () => {
   // Classify all collaborators for current date
   const classified = state.collaborators
     .filter((col) => {
+      const colShift = col.shift || 'Geral';
+      const matchesShift = activeShift === 'ALL' || activeShift === 'todos' || colShift === activeShift;
       const colTL = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
       const matchesTL = selectedTLs.length === 0 || selectedTLs.includes(colTL);
       const matchesRole = selectedRoles.length === 0 || selectedRoles.includes(col.role);
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(col.category);
-      return matchesTL && matchesRole && matchesCategory;
+      return matchesShift && matchesTL && matchesRole && matchesCategory;
     })
     .map((col) => {
       const statusInfo = getCollaboratorStatus(col, activeDate, state);
@@ -123,13 +131,18 @@ export const PresenceView: React.FC = () => {
               placeholder="Pesquisar colaborador..."
               className="w-full sm:w-52"
             />
-            <button
-              onClick={resetAttendance}
+            <motion.button
+              whileTap={{ scale: 0.93 }}
+              whileHover={{ scale: 1.02 }}
+              onClick={() => {
+                resetAttendance();
+                showNotice('Escala e presenças restauradas para o padrão do dia!');
+              }}
               className="px-2.5 py-1 border border-[var(--line)] text-xs font-bold rounded-lg hover:bg-[var(--bg)] flex items-center gap-1 shrink-0 text-[var(--ink)] cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Restaurar Escala</span>
-            </button>
+            </motion.button>
           </div>
         </div>
 
@@ -554,7 +567,10 @@ export const PresenceView: React.FC = () => {
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-bold text-red-950 dark:text-red-200">{collaborator.name}</span>
                         <button
-                          onClick={() => toggleAttendance(collaborator.id, true)}
+                          onClick={() => {
+                            toggleAttendance(collaborator.id, true);
+                            showNotice(`Presença adicionada para ${collaborator.name}!`);
+                          }}
                           className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
                         >
                           Marcar Presente
@@ -606,7 +622,10 @@ export const PresenceView: React.FC = () => {
                     </div>
 
                     <button
-                      onClick={() => toggleAttendance(collaborator.id, true)}
+                      onClick={() => {
+                        toggleAttendance(collaborator.id, true);
+                        showNotice(`Presença extra adicionada para ${collaborator.name}!`);
+                      }}
                       className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0"
                     >
                       + Presença Extra

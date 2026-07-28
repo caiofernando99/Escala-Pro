@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { InteractiveEmployeePortal } from './components/InteractiveEmployeePortal';
+import { FloatingToast } from './components/FloatingToast';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
 
 import { HomeView } from './views/HomeView';
@@ -141,7 +143,18 @@ const MainLayout: React.FC = () => {
           onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
         />
         <div className="p-2.5 sm:p-3.5 md:p-4 flex-1">
-          {renderView()}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentView}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              {renderView()}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
 
@@ -151,6 +164,9 @@ const MainLayout: React.FC = () => {
         onClose={handleCloseTutorial}
         onClearSampleData={clearSampleData}
       />
+
+      {/* Floating Action Notice Toast at Bottom */}
+      <FloatingToast />
     </div>
   );
 };

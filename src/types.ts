@@ -104,6 +104,7 @@ export interface ProcessKnowledge {
   type: ProcessType;
   description: string;
   keyTakeaways?: string[];
+  imageUrl?: string;
   iconName?: string;
   active?: boolean;
 }
@@ -142,4 +143,8 @@ export interface AppState {
   dailyReports: Record<string, DailyReport>;
   onlineSpreadsheet?: OnlineSpreadsheetConfig | null;
   isSidebarCollapsed?: boolean;
+  showBriefingSlide?: boolean;
+  showEmployeePortal?: boolean;
+  selectedShiftFilter?: string;
+  selectedTLFilter?: string;
 }
