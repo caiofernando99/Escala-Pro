@@ -313,4 +313,11 @@ export const initialAppState: AppState = {
   showEmployeePortal: true,
   selectedShiftFilter: 'ALL',
   selectedTLFilter: 'ALL',
+  briefingConfig: {
+    coverBgUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&q=80',
+    motivationalQuote: 'A segurança, a qualidade e o trabalho em equipe nos levariam a alcançar a excelência operacional todos os dias.',
+    showQuote: true,
+    pdfUrl: '',
+    pdfPageNumber: 1,
+  },
 };

@@ -19,14 +19,18 @@ import {
   Tag,
   ArrowRight,
   Zap,
+  Undo2,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { matchesSearch, isScaleOff, getCollaboratorStatus } from '../utils/helpers';
 
 export const BreaksView: React.FC = () => {
-  const { state, moveBreakInterval, generateBreaks, showNotice } = useApp();
+  const { state, moveBreakInterval, generateBreaks, clearBreaks, undo, canUndo, showNotice } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [allocationMode, setAllocationMode] = useState<'grid' | 'guided'>('grid');
 
   // Guided Mode State
@@ -42,12 +46,55 @@ export const BreaksView: React.FC = () => {
   const activeTL = state.selectedTLFilter || 'ALL';
   const dayIntervals = state.intervals[activeDate] || {};
 
-  // Unique roles and categories for multi-select filters
+  // Unique roles, categories and skills for multi-select filters
   const allRoles = Array.from(new Set(state.collaborators.map((c) => c.role).filter(Boolean)));
   const roleOptions = allRoles.map((r) => ({ label: r, value: r }));
 
   const allCategories = Array.from(new Set(state.collaborators.map((c) => c.category).filter(Boolean)));
   const categoryOptions = allCategories.map((cat) => ({ label: cat, value: cat }));
+
+  const allSkills = Array.from(new Set(state.skills || []));
+  const skillOptions = allSkills.map((s) => ({ label: s, value: s }));
+
+  // Helper to render skill badges
+  const renderSkillBadges = (col: any, maxDisplay = 2) => {
+    if (!col.skills) return null;
+    const activeEntries = Object.entries(col.skills).filter(([_, lvl]) => Number(lvl) > 0);
+    if (activeEntries.length === 0) return null;
+
+    const displayed = activeEntries.slice(0, maxDisplay);
+    const remaining = activeEntries.length - maxDisplay;
+
+    return (
+      <div className="flex flex-wrap items-center gap-1 mt-0.5">
+        {displayed.map(([sName, lvlVal]) => {
+          const lvl = Number(lvlVal);
+          const lvlLabel = lvl === 3 ? 'Nv 3' : lvl === 2 ? 'Nv 2' : 'Nv 1';
+          return (
+            <span
+              key={sName}
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md text-[8.5px] font-black bg-purple-50 text-purple-900 dark:bg-purple-950/80 dark:text-purple-200 border border-purple-200 dark:border-purple-800 shrink-0"
+              title={`Skill: ${sName} (${lvlLabel})`}
+            >
+              <Sparkles className="w-2.5 h-2.5 text-purple-500 shrink-0" />
+              <span className="truncate max-w-[85px]">{sName}</span>
+              <span className="text-[7.5px] opacity-80 bg-purple-200/80 dark:bg-purple-900/90 px-0.5 rounded font-bold">
+                {lvlLabel}
+              </span>
+            </span>
+          );
+        })}
+        {remaining > 0 && (
+          <span
+            className="text-[8px] font-black text-purple-800 dark:text-purple-200 bg-purple-100 dark:bg-purple-950/90 px-1 py-0.2 rounded-md border border-purple-200 dark:border-purple-800 shrink-0"
+            title={`${remaining} outra(s) skill(s)`}
+          >
+            +{remaining}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   // Active present people (includes manual presence overrides e.g. troca de folga)
   const presentPeople = state.collaborators.filter((c) => {
@@ -68,7 +115,10 @@ export const BreaksView: React.FC = () => {
         const matchesQuery = matchesSearch(p.name, searchTerm) || matchesSearch(p.role, searchTerm);
         const matchesRole = selectedRoles.length === 0 || selectedRoles.includes(p.role);
         const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(p.category);
-        return matchesQuery && matchesRole && matchesCategory;
+        const matchesSkill =
+          selectedSkills.length === 0 ||
+          selectedSkills.some((s) => Number(p.skills?.[s]) > 0);
+        return matchesQuery && matchesRole && matchesCategory && matchesSkill;
       })
       .map((p) => p.id)
   );
@@ -131,7 +181,7 @@ export const BreaksView: React.FC = () => {
               onClick={() => setAllocationMode('grid')}
               className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                 allocationMode === 'grid'
-                  ? 'bg-[var(--paper)] text-[var(--primary)] shadow-2xs'
+                  ? 'bg-[var(--paper)] text-[var(--primary)] shadow-2xs font-black'
                   : 'text-[var(--muted)] hover:text-[var(--ink)]'
               }`}
             >
@@ -149,6 +199,33 @@ export const BreaksView: React.FC = () => {
               <span>Modo Guiado Passo a Passo</span>
             </button>
           </div>
+
+          <button
+            onClick={() => undo()}
+            disabled={!canUndo}
+            className={`px-2.5 py-1.5 border text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer transition-colors ${
+              canUndo
+                ? 'bg-[var(--paper)] hover:bg-[var(--bg)] border-[var(--line)] text-[var(--ink)]'
+                : 'opacity-40 cursor-not-allowed border-[var(--line)] text-[var(--muted)]'
+            }`}
+            title="Desfazer última alteração (Ctrl+Z)"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+            <span>Desfazer (Ctrl+Z)</span>
+          </button>
+
+          <motion.button
+            whileTap={{ scale: 0.93 }}
+            whileHover={{ scale: 1.02 }}
+            onClick={() => {
+              clearBreaks();
+            }}
+            className="px-2.5 py-1.5 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-200 border border-rose-200 dark:border-rose-900 text-xs font-bold rounded-xl hover:bg-rose-100 dark:hover:bg-rose-900/80 flex items-center gap-1 cursor-pointer"
+            title="Limpar escala de intervalos do dia"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Limpar Intervalos</span>
+          </motion.button>
 
           <motion.button
             whileTap={{ scale: 0.93 }}
@@ -243,19 +320,13 @@ export const BreaksView: React.FC = () => {
         </div>
 
         {/* MULTI-SELECT FILTERS FOR TASK & BREAK ALLOCATION */}
-        <div className="pt-2 border-t border-[var(--line)] grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-          <SearchInput
-            value={searchTerm}
-            onChange={setSearchTerm}
-            placeholder="Buscar nome do colaborador..."
-            className="w-full"
-          />
-
+        <div className="pt-2 border-t border-[var(--line)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 text-xs bg-[var(--bg)] p-2.5 rounded-xl border border-[var(--line)] items-end">
           <MultiSelectFilter
             label="Cargo"
             options={roleOptions}
             selectedValues={selectedRoles}
             onChange={setSelectedRoles}
+            placeholder="Todos os cargos"
             allLabel="Todos os Cargos"
             icon={<Briefcase className="w-3 h-3 text-[var(--primary)]" />}
           />
@@ -265,9 +336,46 @@ export const BreaksView: React.FC = () => {
             options={categoryOptions}
             selectedValues={selectedCategories}
             onChange={setSelectedCategories}
+            placeholder="Todas as categorias"
             allLabel="Todas as Categorias"
             icon={<Tag className="w-3 h-3 text-[var(--primary)]" />}
           />
+
+          <MultiSelectFilter
+            label="Skill / Habilitação"
+            options={skillOptions}
+            selectedValues={selectedSkills}
+            onChange={setSelectedSkills}
+            placeholder="Todas as skills"
+            allLabel="Todas as Skills"
+            icon={<Sparkles className="w-3 h-3 text-purple-500" />}
+          />
+
+          <div className="flex flex-col gap-1">
+            <SearchInput
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Buscar colaborador..."
+              className="w-full"
+            />
+          </div>
+
+          {(searchTerm || selectedRoles.length > 0 || selectedCategories.length > 0 || selectedSkills.length > 0) && (
+            <div className="flex items-center">
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedRoles([]);
+                  setSelectedCategories([]);
+                  setSelectedSkills([]);
+                }}
+                className="text-xs font-black text-rose-600 hover:underline flex items-center gap-1 cursor-pointer bg-rose-50 dark:bg-rose-950/60 px-2 py-1 rounded-lg border border-rose-200 dark:border-rose-900 h-[34px] w-full justify-center"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Limpar Filtros</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -408,6 +516,7 @@ export const BreaksView: React.FC = () => {
                                       <span className="text-[8.5px] text-[var(--muted)] truncate block">
                                         {col.role || 'Geral'}
                                       </span>
+                                      {renderSkillBadges(col, 2)}
                                     </div>
                                   </div>
 
@@ -558,6 +667,7 @@ export const BreaksView: React.FC = () => {
                         <span className="text-[10px] text-[var(--muted)] font-bold block">
                           {col.role || 'Geral'} • TL: {col.teamLeader || 'Geral'}
                         </span>
+                        {renderSkillBadges(col, 3)}
                       </div>
                     </div>
 

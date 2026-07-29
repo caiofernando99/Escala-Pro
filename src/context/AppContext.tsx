@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { AppState, AutoBackupInfo, BreakSlot, Collaborator, DeletedCollaborator, OnlineSpreadsheetConfig, ProcessKnowledge, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
+import { AppState, AutoBackupInfo, BreakSlot, BriefingConfig, Collaborator, DeletedCollaborator, OnlineSpreadsheetConfig, ProcessKnowledge, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
 import { generateId, isScaleOff, getTodayISO, formatDateBR, getCollaboratorStatus, formatPersonName } from '../utils/helpers';
 import { initialAppState } from '../utils/initialData';
 
@@ -40,6 +40,7 @@ interface AppContextType {
   canUndo: boolean;
   moveBreakInterval: (collaboratorId: string, fromBreakId: string | null, toBreakId: string | null) => void;
   generateBreaks: () => void;
+  clearBreaks: () => void;
   addCatalogItem: (key: 'roles' | 'categories' | 'skills', item: string) => void;
   removeCatalogItem: (key: 'roles' | 'categories' | 'skills', item: string) => void;
   editCatalogItem: (key: 'roles' | 'categories' | 'skills', oldItem: string, newItem: string) => void;
@@ -61,20 +62,23 @@ interface AppContextType {
   restoreFromAutoBackup: () => boolean;
   disconnectOnlineSpreadsheet: () => void;
   noticeMessage: string | null;
+  noticeType?: 'success' | 'sync' | 'info';
   noticeActionLabel?: string | null;
   onNoticeAction?: (() => void) | null;
-  showNotice: (msg: string, actionLabel?: string, onAction?: () => void) => void;
+  showNotice: (msg: string, actionLabel?: string, onAction?: () => void, noticeType?: 'success' | 'sync' | 'info') => void;
   addTeamLeader: (name: string) => void;
   removeTeamLeader: (name: string) => void;
   setOnlineSpreadsheetConfig: (config: OnlineSpreadsheetConfig | null) => void;
   syncToOnlineSpreadsheet: (isAutoSync?: boolean) => Promise<boolean>;
   fetchFromOnlineSpreadsheet: (isSilent?: boolean) => Promise<boolean>;
+  testWebhookConnection: (url?: string) => Promise<{ success: boolean; message: string; details?: string }>;
   exportLocalSpreadsheet: () => void;
   exportTeamRosterSpreadsheet: () => void;
   generateTemplateSpreadsheet: () => void;
   addProcessKnowledge: (item: Omit<ProcessKnowledge, 'id'>) => void;
   updateProcessKnowledge: (id: string, updates: Partial<ProcessKnowledge>) => void;
   deleteProcessKnowledge: (id: string) => void;
+  updateBriefingConfig: (updates: Partial<BriefingConfig>) => void;
   toggleSidebarCollapsed: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
 }
@@ -82,6 +86,11 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const tabId = useRef<string>(Math.random().toString(36).substring(2, 9));
+  const isRemoteOrBroadcastUpdate = useRef<boolean>(false);
+  const lastLocalEditTime = useRef<number>(0);
+  const lastSyncedTimestampMs = useRef<number>(0);
+
   const [state, setState] = useState<AppState>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -98,6 +107,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return {
           ...initialAppState,
           ...parsed,
+          updatedAtMs: parsed.updatedAtMs || Date.now(),
           collaborators: formattedCols,
           processKnowledgeList: parsed.processKnowledgeList || initialAppState.processKnowledgeList,
           onlineSpreadsheet: isExampleSpreadsheet ? null : parsed.onlineSpreadsheet || null,
@@ -113,15 +123,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
     return {
       ...initialAppState,
+      updatedAtMs: Date.now(),
       collaborators: formattedInitialCols,
     };
   });
 
   const [noticeState, setNoticeState] = useState<{
     message: string | null;
+    noticeType?: 'success' | 'sync' | 'info';
     actionLabel?: string | null;
     onAction?: (() => void) | null;
-  }>({ message: null });
+  }>({ message: null, noticeType: 'success' });
 
   const [lastAutoBackupInfo, setLastAutoBackupInfo] = useState<AutoBackupInfo | null>(() => {
     try {
@@ -153,6 +165,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCanUndo(true);
   };
 
+  const showNotice = (
+    msg: string,
+    actionLabel?: string | null,
+    onAction?: (() => void) | null,
+    noticeType: 'success' | 'sync' | 'info' = 'success'
+  ) => {
+    setNoticeState({ message: msg, actionLabel, onAction, noticeType });
+    setTimeout(() => {
+      setNoticeState((prev) => (prev.message === msg ? { message: null } : prev));
+    }, 7000);
+  };
+
+  // Helper for applying local mutations cleanly with timestamp update
+  const updateLocalState = (updater: (prev: AppState) => AppState) => {
+    lastLocalEditTime.current = Date.now();
+    isRemoteOrBroadcastUpdate.current = false;
+    setState((prev) => {
+      pushUndo(prev);
+      const next = updater(prev);
+      return {
+        ...next,
+        updatedAtMs: Date.now(),
+      };
+    });
+  };
+
   const undo = (): boolean => {
     if (undoStackRef.current.length === 0) {
       showNotice('Nenhuma ação recente para desfazer.');
@@ -160,7 +198,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     const previous = undoStackRef.current.pop()!;
-    setState(previous);
+    lastLocalEditTime.current = Date.now();
+    isRemoteOrBroadcastUpdate.current = false;
+    setState({
+      ...previous,
+      updatedAtMs: Date.now(),
+    });
     setCanUndo(undoStackRef.current.length > 0);
     showNotice('Ação desfeita com sucesso! (Ctrl+Z)');
     return true;
@@ -183,13 +226,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const showNotice = (msg: string, actionLabel?: string, onAction?: () => void) => {
-    setNoticeState({ message: msg, actionLabel, onAction });
-    setTimeout(() => {
-      setNoticeState((prev) => (prev.message === msg ? { message: null } : prev));
-    }, 7000);
-  };
 
   const createAutoBackup = (reason: string = 'Backup de Segurança Pré-Limpeza'): AutoBackupInfo | null => {
     try {
@@ -254,7 +290,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Broadcast to any open Portal or Manager tab in real-time
       if (typeof BroadcastChannel !== 'undefined') {
         const channel = new BroadcastChannel('escalapro_live_channel');
-        channel.postMessage({ type: 'STATE_UPDATED', state });
+        channel.postMessage({ type: 'STATE_UPDATED', state, senderId: tabId.current });
         channel.close();
       }
     } catch (err) {
@@ -268,10 +304,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (typeof BroadcastChannel !== 'undefined') {
       bc = new BroadcastChannel('escalapro_live_channel');
       bc.onmessage = (event) => {
-        if (event.data && event.data.type === 'STATE_UPDATED' && event.data.state) {
+        if (
+          event.data &&
+          event.data.type === 'STATE_UPDATED' &&
+          event.data.state &&
+          event.data.senderId !== tabId.current
+        ) {
+          const remoteMs = Number(event.data.state.updatedAtMs) || 0;
           setState((prev) => {
-            // Only update if data is actually different to avoid render loops
-            if (JSON.stringify(prev) !== JSON.stringify(event.data.state)) {
+            const localMs = Number(prev.updatedAtMs) || 0;
+            if (remoteMs > localMs) {
+              isRemoteOrBroadcastUpdate.current = true;
+              showNotice(
+                'Alteração sincronizada em tempo real entre abas!',
+                undefined,
+                undefined,
+                'sync'
+              );
               return event.data.state;
             }
             return prev;
@@ -285,7 +334,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const parsed = JSON.parse(e.newValue);
           if (parsed) {
-            setState(parsed);
+            const remoteMs = Number(parsed.updatedAtMs) || 0;
+            setState((prev) => {
+              const localMs = Number(prev.updatedAtMs) || 0;
+              if (remoteMs > localMs) {
+                isRemoteOrBroadcastUpdate.current = true;
+                return parsed;
+              }
+              return prev;
+            });
           }
         } catch {
           // ignore
@@ -313,15 +370,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [state.theme]);
 
   const setDate = (selectedDate: string) => {
-    setState((prev) => ({ ...prev, selectedDate }));
+    updateLocalState((prev) => ({ ...prev, selectedDate }));
   };
 
   const setYear = (year: number) => {
-    setState((prev) => ({ ...prev, year }));
+    updateLocalState((prev) => ({ ...prev, year }));
   };
 
   const setTeamInfo = (info: { teamName?: string; sector?: string; manager?: string; teamShift?: string }) => {
-    setState((prev) => {
+    updateLocalState((prev) => {
       const nextShift = info.teamShift !== undefined ? info.teamShift : prev.teamShift;
       const updatedCols = prev.collaborators.map((c) => ({
         ...c,
@@ -342,12 +399,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setTheme = (theme: ThemeOption) => {
-    setState((prev) => ({ ...prev, theme }));
+    updateLocalState((prev) => ({ ...prev, theme }));
     showNotice(`Tema alterado para ${theme}.`);
   };
 
   const setBrandId = (brandId: string) => {
-    setState((prev) => ({ ...prev, brandId }));
+    updateLocalState((prev) => ({ ...prev, brandId }));
     showNotice(`Identidade visual da marca alterada com sucesso!`);
   };
 
@@ -367,21 +424,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       notes: customProps?.notes || '',
       absences: customProps?.absences || [],
     };
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        collaborators: [...prev.collaborators, newCol],
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      collaborators: [...prev.collaborators, newCol],
+    }));
     showNotice('Novo colaborador cadastrado.');
   };
 
   const addTeamLeader = (name: string) => {
     const clean = name.trim();
     if (!clean) return;
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       const current = prev.teamLeaders || [];
       if (current.includes(clean)) return prev;
       return {
@@ -394,8 +447,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const removeTeamLeader = (name: string) => {
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       const current = prev.teamLeaders || [];
       const updated = current.filter((t) => t !== name);
       return {
@@ -412,13 +464,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (formattedUpdates.name) {
       formattedUpdates.name = formatPersonName(formattedUpdates.name);
     }
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        collaborators: prev.collaborators.map((c) => (c.id === id ? { ...c, ...formattedUpdates } : c)),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      collaborators: prev.collaborators.map((c) => (c.id === id ? { ...c, ...formattedUpdates } : c)),
+    }));
   };
 
   const addProcessKnowledge = (item: Omit<ProcessKnowledge, 'id'>) => {
@@ -427,7 +476,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: generateId(),
       active: item.active !== undefined ? item.active : true,
     };
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       processKnowledgeList: [...(prev.processKnowledgeList || []), newItem],
     }));
@@ -435,7 +484,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateProcessKnowledge = (id: string, updates: Partial<ProcessKnowledge>) => {
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       processKnowledgeList: (prev.processKnowledgeList || []).map((p) =>
         p.id === id ? { ...p, ...updates } : p
@@ -445,7 +494,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteProcessKnowledge = (id: string) => {
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       processKnowledgeList: (prev.processKnowledgeList || []).filter((p) => p.id !== id),
     }));
@@ -465,7 +514,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       expiresAt: expires.toISOString(),
     };
 
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       collaborators: prev.collaborators.filter((c) => c.id !== id),
       deletedCollaborators: [...(prev.deletedCollaborators || []), deletedEntry],
@@ -497,7 +546,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const entry = state.deletedCollaborators?.find((d) => d.id === deletedId);
     if (!entry) return;
 
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       collaborators: [...prev.collaborators, entry.collaborator],
       deletedCollaborators: (prev.deletedCollaborators || []).filter((d) => d.id !== deletedId),
@@ -508,7 +557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const permanentlyDeleteCollaborator = (deletedId: string) => {
     const entry = state.deletedCollaborators?.find((d) => d.id === deletedId);
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       deletedCollaborators: (prev.deletedCollaborators || []).filter((d) => d.id !== deletedId),
     }));
@@ -517,7 +566,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const clearTrashBin = () => {
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       deletedCollaborators: [],
     }));
@@ -529,40 +578,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...absence,
       id: generateId(),
     };
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        collaborators: prev.collaborators.map((c) => {
-          if (c.id === collaboratorId) {
-            return {
-              ...c,
-              absences: [...(c.absences || []), newAbsence],
-            };
-          }
-          return c;
-        }),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      collaborators: prev.collaborators.map((c) => {
+        if (c.id === collaboratorId) {
+          return {
+            ...c,
+            absences: [...(c.absences || []), newAbsence],
+          };
+        }
+        return c;
+      }),
+    }));
     showNotice('Afastamento (Férias/Licença/Treinamento) cadastrado.');
   };
 
   const removeScheduledAbsence = (collaboratorId: string, absenceId: string) => {
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        collaborators: prev.collaborators.map((c) => {
-          if (c.id === collaboratorId) {
-            return {
-              ...c,
-              absences: (c.absences || []).filter((a) => a.id !== absenceId),
-            };
-          }
-          return c;
-        }),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      collaborators: prev.collaborators.map((c) => {
+        if (c.id === collaboratorId) {
+          return {
+            ...c,
+            absences: (c.absences || []).filter((a) => a.id !== absenceId),
+          };
+        }
+        return c;
+      }),
+    }));
     showNotice('Afastamento removido.');
   };
 
@@ -575,34 +618,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       allowedRoles,
       allowedCategories,
     };
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        tasks: [...prev.tasks, newTask],
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      tasks: [...prev.tasks, newTask],
+    }));
     showNotice(`Tarefa "${name}" adicionada.`);
   };
 
   const updateTask = (id: string, updates: Partial<Task>) => {
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        tasks: prev.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+    }));
   };
 
   const deleteTask = (id: string) => {
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        tasks: prev.tasks.filter((t) => t.id !== id),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      tasks: prev.tasks.filter((t) => t.id !== id),
+    }));
     showNotice('Tarefa excluída.');
   };
 
@@ -613,40 +647,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       shift: shift || state.teamShift || 'T2',
       capacity: capacity || undefined,
     };
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        breaks: [...prev.breaks, newSlot],
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      breaks: [...prev.breaks, newSlot],
+    }));
     showNotice('Horário de intervalo adicionado.');
   };
 
   const updateBreakSlot = (id: string, updates: Partial<BreakSlot>) => {
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        breaks: prev.breaks.map((b) => (b.id === id ? { ...b, ...updates } : b)),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      breaks: prev.breaks.map((b) => (b.id === id ? { ...b, ...updates } : b)),
+    }));
   };
 
   const deleteBreakSlot = (id: string) => {
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        breaks: prev.breaks.filter((b) => b.id !== id),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      breaks: prev.breaks.filter((b) => b.id !== id),
+    }));
     showNotice('Horário de intervalo removido.');
   };
 
   const markDayScale = (dateStr: string, scale: ShiftGroup | '') => {
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       const newCal = { ...prev.calendar };
       if (scale) {
         newCal[dateStr] = scale;
@@ -658,7 +682,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const generate6x2Scale = (startDate: string, firstGroup: ShiftGroup) => {
-    setState((prev) => {
+    updateLocalState((prev) => {
       const OFF: ShiftGroup[] = ['A', 'B', 'C', 'D'];
       const newCal = { ...prev.calendar };
       const start = new Date(startDate + 'T12:00:00');
@@ -678,8 +702,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleAttendance = (collaboratorId: string, present: boolean) => {
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       const dateKey = prev.selectedDate;
       const dayAtt = { ...(prev.attendance[dateKey] || {}) };
       dayAtt[collaboratorId] = present;
@@ -694,8 +717,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const resetAttendance = () => {
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       const dateKey = prev.selectedDate;
       const newAtt = { ...prev.attendance };
       delete newAtt[dateKey];
@@ -705,8 +727,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const assignTask = (collaboratorId: string, taskId: string) => {
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       const updatedTasks = prev.tasks.map((t) => {
         const filtered = t.members.filter((m) => m !== collaboratorId);
         if (t.id === taskId) {
@@ -719,45 +740,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const unassignTask = (collaboratorId: string) => {
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        tasks: prev.tasks.map((t) => ({
-          ...t,
-          members: t.members.filter((m) => m !== collaboratorId),
-        })),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((t) => ({
+        ...t,
+        members: t.members.filter((m) => m !== collaboratorId),
+      })),
+    }));
   };
 
   const clearAssignments = () => {
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        tasks: prev.tasks.map((t) => ({ ...t, members: [] })),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((t) => ({ ...t, members: [] })),
+    }));
     showNotice('Dimensionamento de tarefas limpo.');
   };
 
   const clearTaskAssignments = (taskId: string) => {
     const targetTask = state.tasks.find((t) => t.id === taskId);
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, members: [] } : t)),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, members: [] } : t)),
+    }));
     showNotice(`Dimensionamento da tarefa "${targetTask?.name || ''}" foi limpo.`);
   };
 
   const autoAssign = () => {
-    setState((prev) => {
+    updateLocalState((prev) => {
       if (!prev.tasks.length) return prev;
-      pushUndo(prev);
       const activeShift = prev.selectedShiftFilter || 'ALL';
       const activeTL = prev.selectedTLFilter || 'ALL';
 
@@ -804,8 +815,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const moveBreakInterval = (collaboratorId: string, fromBreakId: string | null, toBreakId: string | null) => {
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       const dateKey = prev.selectedDate;
       const dayIntervals = { ...(prev.intervals[dateKey] || {}) };
 
@@ -828,8 +838,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const generateBreaks = () => {
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       if (!prev.breaks.length) return prev;
       const dateKey = prev.selectedDate;
       const result: Record<string, string[]> = Object.fromEntries(prev.breaks.map((b) => [b.id, []]));
@@ -879,11 +888,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotice('Intervalos de refeição distribuídos e balanceados.');
   };
 
+  const clearBreaks = () => {
+    updateLocalState((prev) => {
+      const dateKey = prev.selectedDate;
+      const newIntervals = { ...prev.intervals };
+      delete newIntervals[dateKey];
+      return {
+        ...prev,
+        intervals: newIntervals,
+      };
+    });
+    showNotice('Escala de intervalos do dia foi limpa com sucesso.');
+  };
+
   const addCatalogItem = (key: 'roles' | 'categories' | 'skills', item: string) => {
     const trimmed = item.trim();
     if (!trimmed) return;
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       if (prev[key].includes(trimmed)) return prev;
       return { ...prev, [key]: [...prev[key], trimmed] };
     });
@@ -891,21 +912,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const removeCatalogItem = (key: 'roles' | 'categories' | 'skills', item: string) => {
-    setState((prev) => {
-      pushUndo(prev);
-      return {
-        ...prev,
-        [key]: prev[key].filter((i) => i !== item),
-      };
-    });
+    updateLocalState((prev) => ({
+      ...prev,
+      [key]: prev[key].filter((i) => i !== item),
+    }));
     showNotice('Item removido.');
   };
 
   const editCatalogItem = (key: 'roles' | 'categories' | 'skills', oldItem: string, newItem: string) => {
     const trimmed = newItem.trim();
     if (!trimmed || trimmed === oldItem) return;
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       const updatedList = prev[key].map((item) => (item === oldItem ? trimmed : item));
       let updatedCollaborators = prev.collaborators;
       let updatedTasks = prev.tasks;
@@ -950,8 +967,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const editTeamLeader = (oldName: string, newName: string) => {
     const trimmed = newName.trim();
     if (!trimmed || trimmed === oldName) return;
-    setState((prev) => {
-      pushUndo(prev);
+    updateLocalState((prev) => {
       const updatedLeaders = (prev.teamLeaders || []).map((tl) => (tl === oldName ? trimmed : tl));
       const updatedDefault = prev.defaultTeamLeader === oldName ? trimmed : prev.defaultTeamLeader;
       const updatedCollaborators = prev.collaborators.map((c) =>
@@ -968,7 +984,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setSelectedGlobalFilters = (filters: { shift?: string; teamLeader?: string }) => {
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       selectedShiftFilter: filters.shift !== undefined ? filters.shift : prev.selectedShiftFilter,
       selectedTLFilter: filters.teamLeader !== undefined ? filters.teamLeader : prev.selectedTLFilter,
@@ -978,7 +994,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setModuleVisibility = (modules: { showBriefingSlide?: boolean; showEmployeePortal?: boolean }) => {
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       showBriefingSlide: modules.showBriefingSlide !== undefined ? modules.showBriefingSlide : prev.showBriefingSlide,
       showEmployeePortal: modules.showEmployeePortal !== undefined ? modules.showEmployeePortal : prev.showEmployeePortal,
@@ -987,7 +1003,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setSkillLevel = (collaboratorId: string, skill: string, level: number) => {
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       collaborators: prev.collaborators.map((c) => {
         if (c.id === collaboratorId) {
@@ -1002,7 +1018,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setAbsenceReason = (collaboratorId: string, reason: string) => {
-    setState((prev) => {
+    updateLocalState((prev) => {
       const dateKey = prev.selectedDate;
       const dayReport = prev.dailyReports[dateKey] || {};
       return {
@@ -1022,7 +1038,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setOccurrence = (collaboratorId: string, text: string) => {
-    setState((prev) => {
+    updateLocalState((prev) => {
       const dateKey = prev.selectedDate;
       const dayReport = prev.dailyReports[dateKey] || {};
       return {
@@ -1042,7 +1058,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setGeneralNotes = (notes: string) => {
-    setState((prev) => {
+    updateLocalState((prev) => {
       const dateKey = prev.selectedDate;
       const dayReport = prev.dailyReports[dateKey] || {};
       return {
@@ -1059,7 +1075,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const saveDailyReport = () => {
-    setState((prev) => {
+    updateLocalState((prev) => {
       const dateKey = prev.selectedDate;
       const dayReport = prev.dailyReports[dateKey] || {};
       const snapshot = prev.collaborators.map((c) => {
@@ -1107,7 +1123,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const saveHistory = () => {
-    setState((prev) => {
+    updateLocalState((prev) => {
       const dateKey = prev.selectedDate;
       const presentCount = prev.collaborators.filter((c) => {
         const hasAbsence = (c.absences || []).some((a) => dateKey >= a.startDate && dateKey <= a.endDate);
@@ -1153,7 +1169,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const importedSpreadsheet = isExampleSpreadsheet ? null : newState.onlineSpreadsheet || null;
 
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...initialAppState,
       ...newState,
       onlineSpreadsheet: importedSpreadsheet,
@@ -1175,7 +1191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const importRosterRows = (rows: any[]) => {
     let count = 0;
-    setState((prev) => {
+    updateLocalState((prev) => {
       const newCols = [...prev.collaborators];
       const newRoles = new Set(prev.roles);
       const newCats = new Set(prev.categories);
@@ -1228,10 +1244,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const backupInfo = createAutoBackup('Backup de emergência automático pré-reset');
 
     localStorage.removeItem(STORAGE_KEY);
-    setState({
+    updateLocalState(() => ({
       ...initialAppState,
       selectedDate: getTodayISO(),
-    });
+    }));
 
     const timeDetail = backupInfo ? ` (Backup automático gravado às ${backupInfo.formattedDate})` : '';
     showNotice(
@@ -1242,7 +1258,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const clearSampleData = () => {
-    setState((prev) => ({
+    updateLocalState((prev) => ({
       ...prev,
       collaborators: [],
       deletedCollaborators: [],
@@ -1331,11 +1347,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotice(`Planilha modelo baixada para criação de banco de dados no Google Sheets.`);
   };
 
-  const lastLocalEditTime = useRef<number>(0);
-  const lastSyncedTimestampMs = useRef<number>(0);
-
   const setOnlineSpreadsheetConfig = (config: OnlineSpreadsheetConfig | null) => {
-    setState((prev) => ({ ...prev, onlineSpreadsheet: config }));
+    updateLocalState((prev) => ({ ...prev, onlineSpreadsheet: config }));
     if (config) {
       showNotice(`Planilha "${config.name}" conectada com sucesso! Sincronizando dados em tempo real...`);
       if (config.webhookUrl) {
@@ -1346,6 +1359,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       showNotice('Planilha online desconectada.');
     }
+  };
+
+  const updateBriefingConfig = (updates: Partial<BriefingConfig>) => {
+    updateLocalState((prev) => ({
+      ...prev,
+      briefingConfig: {
+        ...(prev.briefingConfig || {}),
+        ...updates,
+      },
+    }));
   };
 
   const setSidebarCollapsed = (collapsed: boolean) => {
@@ -1380,12 +1403,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
       }
 
-      const remoteUpdatedAtMs = remoteState.updatedAtMs || 0;
-      if (remoteUpdatedAtMs && remoteUpdatedAtMs <= lastSyncedTimestampMs.current) {
+      const remoteUpdatedAtMs = Number(remoteState.updatedAtMs) || 0;
+      const localUpdatedAtMs = Number(state.updatedAtMs) || 0;
+
+      // Protection: Only accept remote state if strictly NEWER than local state
+      if (remoteUpdatedAtMs <= localUpdatedAtMs || remoteUpdatedAtMs <= lastSyncedTimestampMs.current) {
         return false;
       }
 
-      lastSyncedTimestampMs.current = remoteUpdatedAtMs || Date.now();
+      isRemoteOrBroadcastUpdate.current = true;
+      lastSyncedTimestampMs.current = remoteUpdatedAtMs;
       const now = new Date();
       const timestampStr = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR')}`;
 
@@ -1407,6 +1434,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         manager: remoteState.manager || prev.manager,
         teamShift: remoteState.teamShift || prev.teamShift,
         defaultTeamLeader: remoteState.defaultTeamLeader || prev.defaultTeamLeader,
+        updatedAtMs: remoteUpdatedAtMs,
         onlineSpreadsheet: prev.onlineSpreadsheet
           ? {
               ...prev.onlineSpreadsheet,
@@ -1417,9 +1445,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : null,
       }));
 
-      if (!isSilent) {
-        showNotice('Dados sincronizados em tempo real com a planilha online!');
-      }
+      showNotice('Mudança sincronizada em tempo real da planilha compartilhada!', undefined, undefined, 'sync');
       return true;
     } catch (err) {
       if (!isSilent) {
@@ -1458,7 +1484,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const now = new Date();
-    const timestampMs = Date.now();
+    const timestampMs = state.updatedAtMs || Date.now();
     lastSyncedTimestampMs.current = timestampMs;
     const timestampStr = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR')}`;
 
@@ -1750,6 +1776,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
+    if (isRemoteOrBroadcastUpdate.current) {
+      isRemoteOrBroadcastUpdate.current = false;
+      return;
+    }
+
     lastLocalEditTime.current = Date.now();
 
     if (
@@ -1759,7 +1790,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ) {
       const timer = setTimeout(() => {
         syncToOnlineSpreadsheet(true);
-      }, 1200);
+      }, 800);
       return () => clearTimeout(timer);
     }
   }, [
@@ -1777,6 +1808,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     state.teamLeaders,
     state.selectedDate,
     state.dailyReports,
+    state.updatedAtMs,
   ]);
 
   // Background polling effect to receive changes from other team members using the same spreadsheet
@@ -1787,14 +1819,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const interval = setInterval(() => {
-      // Only pull if user hasn't edited locally in the last 3.5 seconds
-      if (Date.now() - lastLocalEditTime.current > 3500) {
+      // Only pull if user hasn't edited locally in the last 1.2 seconds
+      if (Date.now() - lastLocalEditTime.current > 1200) {
         fetchFromOnlineSpreadsheet(true);
       }
-    }, 4000);
+    }, 2000);
 
     return () => clearInterval(interval);
-  }, [state.onlineSpreadsheet?.webhookUrl, state.onlineSpreadsheet?.autoSyncEnabled]);
+  }, [state.onlineSpreadsheet?.webhookUrl, state.onlineSpreadsheet?.autoSyncEnabled, state.updatedAtMs]);
 
   return (
     <AppContext.Provider
@@ -1832,6 +1864,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         canUndo,
         moveBreakInterval,
         generateBreaks,
+        clearBreaks,
         addCatalogItem,
         removeCatalogItem,
         editCatalogItem,
@@ -1853,6 +1886,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         restoreFromAutoBackup,
         disconnectOnlineSpreadsheet,
         noticeMessage: noticeState.message,
+        noticeType: noticeState.noticeType,
         noticeActionLabel: noticeState.actionLabel,
         onNoticeAction: noticeState.onAction,
         showNotice,
@@ -1868,6 +1902,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addProcessKnowledge,
         updateProcessKnowledge,
         deleteProcessKnowledge,
+        updateBriefingConfig,
         toggleSidebarCollapsed,
         setSidebarCollapsed,
       }}

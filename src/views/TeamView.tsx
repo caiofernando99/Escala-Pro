@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { SearchInput } from '../components/SearchInput';
+import { MultiSelectFilter } from '../components/MultiSelectFilter';
 import {
   UserPlus,
   Upload,
@@ -63,12 +64,18 @@ export const TeamView: React.FC = () => {
   } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedShiftFilter, setSelectedShiftFilter] = useState<string>(
-    state.selectedShiftFilter && state.selectedShiftFilter !== 'ALL' ? state.selectedShiftFilter : 'todos'
+  const [selectedShifts, setSelectedShifts] = useState<string[]>(
+    state.selectedShiftFilter && state.selectedShiftFilter !== 'ALL' && state.selectedShiftFilter !== 'todos'
+      ? [state.selectedShiftFilter]
+      : []
   );
-  const [selectedTLFilter, setSelectedTLFilter] = useState<string>(
-    state.selectedTLFilter && state.selectedTLFilter !== 'ALL' ? state.selectedTLFilter : 'todos'
+  const [selectedTLs, setSelectedTLs] = useState<string[]>(
+    state.selectedTLFilter && state.selectedTLFilter !== 'ALL' && state.selectedTLFilter !== 'todos'
+      ? [state.selectedTLFilter]
+      : []
   );
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [newTLInput, setNewTLInput] = useState<string>('');
   const [listMode, setListMode] = useState<'active' | 'trash'>('active');
   const [confirmDeletePermanentId, setConfirmDeletePermanentId] = useState<string | null>(null);
@@ -108,6 +115,56 @@ export const TeamView: React.FC = () => {
   const [absenceEndDate, setAbsenceEndDate] = useState(state.selectedDate);
   const [absenceNotes, setAbsenceNotes] = useState('');
 
+  // Add collaborator modal state
+  const [addCollabModalOpen, setAddCollabModalOpen] = useState(false);
+  const [newCollabForm, setNewCollabForm] = useState({
+    name: '',
+    login: '',
+    registration: '',
+    shift: 'Geral',
+    scale: 'A' as ShiftGroup,
+    teamLeader: '',
+    role: '',
+    category: '',
+    notes: '',
+  });
+
+  const handleOpenAddCollabModal = () => {
+    setNewCollabForm({
+      name: '',
+      login: '',
+      registration: '',
+      shift: state.teamShift || availableShifts[0] || 'Geral',
+      scale: 'A',
+      teamLeader: state.defaultTeamLeader || (state.teamLeaders?.[0] || 'Sem Time'),
+      role: state.roles[0] || 'Operador de Processo',
+      category: state.categories[0] || 'Inbound',
+      notes: '',
+    });
+    setAddCollabModalOpen(true);
+  };
+
+  const handleSaveNewCollaborator = () => {
+    if (!newCollabForm.name.trim()) {
+      showNotice('Por favor, informe o nome do colaborador.');
+      return;
+    }
+
+    addCollaborator({
+      name: newCollabForm.name.trim(),
+      login: newCollabForm.login.trim(),
+      registration: newCollabForm.registration.trim(),
+      shift: newCollabForm.shift || 'Geral',
+      scale: newCollabForm.scale || 'A',
+      teamLeader: newCollabForm.teamLeader || 'Sem Time',
+      role: newCollabForm.role || (state.roles[0] || 'Operador de Processo'),
+      category: newCollabForm.category || (state.categories[0] || 'Inbound'),
+      notes: newCollabForm.notes.trim(),
+    });
+
+    setAddCollabModalOpen(false);
+  };
+
   // Skill assignment modal state
   const [addSkillModalCollabId, setAddSkillModalCollabId] = useState<string | null>(null);
   const [selectedSkillName, setSelectedSkillName] = useState<string>('');
@@ -119,22 +176,29 @@ export const TeamView: React.FC = () => {
   const defaultShifts = ['Geral', 'T1', 'T2', 'T3', 'T4', 'T5'];
   const colShifts = state.collaborators.map((c) => c.shift || 'Geral');
   const availableShifts = Array.from(new Set([...defaultShifts, ...colShifts]));
+  const shiftOptions = availableShifts.map((s) => ({ label: `Turno ${s}`, value: s }));
 
-  // TLs available for the selected shift
-  const tlsForSelectedShift = Array.from(
+  // TLs available for the selected shifts
+  const availableTLs = Array.from(
     new Set(
       state.collaborators
-        .filter((c) => selectedShiftFilter === 'todos' || (c.shift || 'Geral') === selectedShiftFilter)
+        .filter((c) => selectedShifts.length === 0 || selectedShifts.includes(c.shift || 'Geral'))
         .map((c) => c.teamLeader || state.defaultTeamLeader || 'Sem Time')
     )
   );
+  const tlOptions = availableTLs.map((tl) => ({ label: tl, value: tl }));
+
+  const roleOptions = state.roles.map((r) => ({ label: r, value: r }));
+  const categoryOptions = state.categories.map((c) => ({ label: c, value: c }));
 
   // Filtered collaborators
   const filteredCollaborators = state.collaborators.filter((c) => {
     const colTL = c.teamLeader || state.defaultTeamLeader || 'Sem Time';
-    const matchesTL = selectedTLFilter === 'todos' || colTL === selectedTLFilter;
+    const matchesTL = selectedTLs.length === 0 || selectedTLs.includes(colTL);
     const colShift = c.shift || 'Geral';
-    const matchesShift = selectedShiftFilter === 'todos' || colShift === selectedShiftFilter;
+    const matchesShift = selectedShifts.length === 0 || selectedShifts.includes(colShift);
+    const matchesRole = selectedRoles.length === 0 || selectedRoles.includes(c.role);
+    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(c.category);
 
     const matchesSearchTerm =
       matchesSearch(c.name, searchTerm) ||
@@ -145,7 +209,7 @@ export const TeamView: React.FC = () => {
       matchesSearch(colShift, searchTerm) ||
       matchesSearch(colTL, searchTerm);
 
-    return matchesTL && matchesShift && matchesSearchTerm;
+    return matchesTL && matchesShift && matchesRole && matchesCategory && matchesSearchTerm;
   });
 
   // Filtered deleted collaborators (Trash Bin)
@@ -153,7 +217,7 @@ export const TeamView: React.FC = () => {
   const filteredDeletedCollaborators = deletedList.filter((d) => {
     const col = d.collaborator;
     const colTL = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
-    const matchesTL = selectedTLFilter === 'todos' || colTL === selectedTLFilter;
+    const matchesTL = selectedTLs.length === 0 || selectedTLs.includes(colTL);
 
     const matchesSearchTerm =
       matchesSearch(col.name, searchTerm) ||
@@ -310,20 +374,6 @@ export const TeamView: React.FC = () => {
             <span>Importar Planilha</span>
             <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" />
           </label>
-          <button
-            onClick={() => setAbsenceModalOpen(true)}
-            className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 flex items-center gap-1.5 shadow-xs transition-colors"
-          >
-            <Palmtree className="w-3.5 h-3.5" />
-            <span>+ Agendar Férias / Licença</span>
-          </button>
-          <button
-            onClick={() => addCollaborator()}
-            className="px-3 py-1.5 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1.5 shadow-xs transition-colors"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>+ Colaborador</span>
-          </button>
         </div>
       </div>
 
@@ -1014,100 +1064,121 @@ export const TeamView: React.FC = () => {
 
       {/* Main Roster Table with SEARCH BAR, Tabs & Trash Bin */}
       <div className="bg-[var(--paper)] border border-[var(--line)] p-5 rounded-xl space-y-4">
-        {/* Top View Mode Switcher & Filters */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setListMode('active')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 border cursor-pointer ${
-                listMode === 'active'
-                  ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-2xs'
-                  : 'bg-[var(--bg)] text-[var(--muted)] border-[var(--line)] hover:text-[var(--ink)]'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Colaboradores Ativos ({state.collaborators.length})</span>
-            </button>
-            <button
-              onClick={() => setListMode('trash')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 border cursor-pointer ${
-                listMode === 'trash'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
-                  : 'bg-[var(--bg)] text-[var(--muted)] border-[var(--line)] hover:text-amber-600'
-              }`}
-            >
-              <Archive className="w-3.5 h-3.5" />
-              <span>Lixeira / Excluídos (Guardados 60d)</span>
-              {deletedList.length > 0 && (
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                    listMode === 'trash' ? 'bg-white text-amber-900' : 'bg-amber-500 text-white'
-                  }`}
+        {/* Top View Mode Switcher & Multi-Select Filters */}
+        <div className="space-y-3 border-b border-[var(--line)] pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setListMode('active')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 border cursor-pointer ${
+                  listMode === 'active'
+                    ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-2xs'
+                    : 'bg-[var(--bg)] text-[var(--muted)] border-[var(--line)] hover:text-[var(--ink)]'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Colaboradores Ativos ({state.collaborators.length})</span>
+              </button>
+              <button
+                onClick={() => setListMode('trash')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 border cursor-pointer ${
+                  listMode === 'trash'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
+                    : 'bg-[var(--bg)] text-[var(--muted)] border-[var(--line)] hover:text-amber-600'
+                }`}
+              >
+                <Archive className="w-3.5 h-3.5" />
+                <span>Lixeira / Excluídos (Guardados 60d)</span>
+                {deletedList.length > 0 && (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      listMode === 'trash' ? 'bg-white text-amber-900' : 'bg-amber-500 text-white'
+                    }`}
+                  >
+                    {deletedList.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {listMode === 'trash' && deletedList.length > 0 && (
+                <button
+                  onClick={() => setConfirmClearTrash(true)}
+                  className="px-3 py-1.5 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 hover:bg-red-200 border border-red-300 dark:border-red-800 text-xs font-extrabold rounded-lg flex items-center gap-1 transition-colors shrink-0 cursor-pointer"
+                  title="Limpar todos os colaboradores da lixeira"
                 >
-                  {deletedList.length}
-                </span>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Esvaziar Lixeira</span>
+                </button>
               )}
-            </button>
+              <button
+                onClick={() => setAbsenceModalOpen(true)}
+                className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                title="Cadastrar férias, licenças médicas ou treinamentos para colaboradores"
+              >
+                <Palmtree className="w-3.5 h-3.5" />
+                <span>+ Agendar Férias / Licença</span>
+              </button>
+              <button
+                onClick={handleOpenAddCollabModal}
+                className="px-3 py-1.5 bg-[var(--primary)] text-white text-xs font-bold rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                title="Cadastrar um novo colaborador na equipe"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>+ Adicionar Colaborador</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Turno Filter Pill */}
-            <div className="flex items-center gap-1 bg-[var(--bg)] border border-[var(--line)] p-1 rounded-lg text-xs font-semibold">
-              <span className="text-[var(--muted)] px-2 font-bold">Turno:</span>
-              <select
-                value={selectedShiftFilter}
-                onChange={(e) => {
-                  setSelectedShiftFilter(e.target.value);
-                  setSelectedTLFilter('todos');
-                }}
-                className="bg-transparent text-[var(--ink)] font-bold focus:outline-none cursor-pointer py-1 pr-1"
-              >
-                <option value="todos">Todos os Turnos</option>
-                {availableShifts.map((s) => (
-                  <option key={s} value={s}>
-                    Turno {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Team Leader Filter Pill */}
-            <div className="flex items-center gap-1 bg-[var(--bg)] border border-[var(--line)] p-1 rounded-lg text-xs font-semibold">
-              <span className="text-[var(--muted)] px-2 font-bold">Time / TL:</span>
-              <select
-                value={selectedTLFilter}
-                onChange={(e) => setSelectedTLFilter(e.target.value)}
-                className="bg-transparent text-[var(--ink)] font-bold focus:outline-none cursor-pointer py-1 pr-1"
-              >
-                <option value="todos">
-                  {selectedShiftFilter !== 'todos' ? `Todos os Times do Turno ${selectedShiftFilter}` : 'Todos os Times'}
-                </option>
-                {(selectedShiftFilter === 'todos' ? (state.teamLeaders || []) : tlsForSelectedShift).map((tl) => (
-                  <option key={tl} value={tl}>
-                    {tl}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Search Input Requirement */}
-            <SearchInput
-              value={searchTerm}
-              onChange={setSearchTerm}
-              placeholder="Pesquisar por nome, LDAP, RE, cargo, time..."
-              className="w-full sm:w-64"
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 text-xs bg-[var(--bg)] p-2.5 rounded-xl border border-[var(--line)] items-end">
+            <MultiSelectFilter
+              label="Turno"
+              options={shiftOptions}
+              selectedValues={selectedShifts}
+              onChange={setSelectedShifts}
+              placeholder="Todos os turnos"
+              allLabel="Todos os Turnos"
             />
 
-            {listMode === 'trash' && deletedList.length > 0 && (
-              <button
-                onClick={() => setConfirmClearTrash(true)}
-                className="px-3 py-2 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 hover:bg-red-200 border border-red-300 dark:border-red-800 text-xs font-extrabold rounded-lg flex items-center gap-1 transition-colors shrink-0 cursor-pointer"
-                title="Limpar todos os colaboradores da lixeira"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Esvaziar Lixeira</span>
-              </button>
-            )}
+            <MultiSelectFilter
+              label="Time / TL"
+              options={tlOptions}
+              selectedValues={selectedTLs}
+              onChange={setSelectedTLs}
+              placeholder="Todos os times"
+              allLabel="Todos os Times"
+              icon={<Users className="w-3 h-3 text-[var(--primary)]" />}
+            />
+
+            <MultiSelectFilter
+              label="Cargo"
+              options={roleOptions}
+              selectedValues={selectedRoles}
+              onChange={setSelectedRoles}
+              placeholder="Todos os cargos"
+              allLabel="Todos os Cargos"
+              icon={<Briefcase className="w-3 h-3 text-[var(--primary)]" />}
+            />
+
+            <MultiSelectFilter
+              label="Categoria"
+              options={categoryOptions}
+              selectedValues={selectedCategories}
+              onChange={setSelectedCategories}
+              placeholder="Todas as categorias"
+              allLabel="Todas as Categorias"
+              icon={<Tag className="w-3 h-3 text-[var(--primary)]" />}
+            />
+
+            <div className="flex flex-col gap-1">
+              <SearchInput
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Pesquisar..."
+                className="w-full"
+              />
+            </div>
           </div>
         </div>
 
@@ -1796,6 +1867,179 @@ export const TeamView: React.FC = () => {
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Vincular Skill</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Add New Collaborator */}
+      {addCollabModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-[var(--paper)] border border-[var(--line)] rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl text-[var(--ink)]">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[var(--primary-soft)] text-[var(--primary)] rounded-xl">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base leading-tight">Cadastrar Novo Colaborador</h3>
+                  <p className="text-xs text-[var(--muted)]">Preencha as informações do novo membro da equipe</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAddCollabModalOpen(false)}
+                className="p-1 rounded-lg bg-[var(--bg)] hover:bg-[var(--line)] text-[var(--muted)] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-[var(--muted)] mb-1">
+                  Nome Completo <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCollabForm.name}
+                  onChange={(e) => setNewCollabForm({ ...newCollabForm, name: e.target.value })}
+                  placeholder="Ex: João da Silva"
+                  className="w-full p-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-semibold focus:ring-2 focus:ring-[var(--primary)] text-[var(--ink)]"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveNewCollaborator();
+                  }}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted)] mb-1">LDAP / User ID</label>
+                  <input
+                    type="text"
+                    value={newCollabForm.login}
+                    onChange={(e) => setNewCollabForm({ ...newCollabForm, login: e.target.value })}
+                    placeholder="Ex: jsilva"
+                    className="w-full p-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-semibold text-[var(--ink)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted)] mb-1">Matrícula / RE</label>
+                  <input
+                    type="text"
+                    value={newCollabForm.registration}
+                    onChange={(e) => setNewCollabForm({ ...newCollabForm, registration: e.target.value })}
+                    placeholder="Ex: 123456"
+                    className="w-full p-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-semibold text-[var(--ink)]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted)] mb-1">Turno</label>
+                  <select
+                    value={newCollabForm.shift}
+                    onChange={(e) => setNewCollabForm({ ...newCollabForm, shift: e.target.value })}
+                    className="w-full p-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-bold text-[var(--ink)]"
+                  >
+                    {availableShifts.map((sh) => (
+                      <option key={sh} value={sh}>
+                        Turno {sh}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted)] mb-1">Escala / Turma</label>
+                  <select
+                    value={newCollabForm.scale}
+                    onChange={(e) => setNewCollabForm({ ...newCollabForm, scale: e.target.value as ShiftGroup })}
+                    className="w-full p-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-bold text-[var(--ink)]"
+                  >
+                    {SHIFT_GROUPS.map((grp) => (
+                      <option key={grp} value={grp}>
+                        Turma {grp}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted)] mb-1">Time / Team Leader (TL)</label>
+                  <select
+                    value={newCollabForm.teamLeader}
+                    onChange={(e) => setNewCollabForm({ ...newCollabForm, teamLeader: e.target.value })}
+                    className="w-full p-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-bold text-[var(--ink)]"
+                  >
+                    {(state.teamLeaders || ['Sem Time']).map((tl) => (
+                      <option key={tl} value={tl}>
+                        {tl}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted)] mb-1">Cargo / Função</label>
+                  <select
+                    value={newCollabForm.role}
+                    onChange={(e) => setNewCollabForm({ ...newCollabForm, role: e.target.value })}
+                    className="w-full p-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-bold text-[var(--ink)]"
+                  >
+                    {state.roles.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[var(--muted)] mb-1">Categoria Operacional</label>
+                <select
+                  value={newCollabForm.category}
+                  onChange={(e) => setNewCollabForm({ ...newCollabForm, category: e.target.value })}
+                  className="w-full p-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-bold text-[var(--ink)]"
+                >
+                  {state.categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[var(--muted)] mb-1">Observações (opcional)</label>
+                <input
+                  type="text"
+                  value={newCollabForm.notes}
+                  onChange={(e) => setNewCollabForm({ ...newCollabForm, notes: e.target.value })}
+                  placeholder="Ex: Restrições médicas, horário diferenciado..."
+                  className="w-full p-2.5 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs text-[var(--ink)]"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--line)]">
+              <button
+                onClick={() => setAddCollabModalOpen(false)}
+                className="px-4 py-2 border border-[var(--line)] rounded-xl text-xs font-bold hover:bg-[var(--bg)] transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveNewCollaborator}
+                className="px-5 py-2 bg-[var(--primary)] text-white rounded-xl text-xs font-bold hover:bg-[var(--primary-hover)] flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Cadastrar Colaborador</span>
               </button>
             </div>
           </div>

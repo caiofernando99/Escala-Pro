@@ -34,6 +34,25 @@ export function formatPersonName(name: string): string {
   return formatted + trailingSpaces;
 }
 
+/**
+ * Abbreviates a full name e.g., "Ana Paula Silva" -> "ANA S." or "Ana S."
+ * Handles prepositions like "da", "de", "do".
+ */
+export function abbreviateName(fullName: string, uppercase = true): string {
+  if (!fullName) return '';
+  const trimmed = fullName.trim();
+  if (!trimmed) return '';
+  const lowercasePrepositions = new Set(['de', 'da', 'do', 'dos', 'das', 'e', 'del', 'di']);
+  const words = trimmed.split(/\s+/).filter(w => !lowercasePrepositions.has(w.toLowerCase()));
+  if (words.length <= 1) {
+    return uppercase ? words[0].toUpperCase() : formatPersonName(words[0]);
+  }
+  const firstName = uppercase ? words[0].toUpperCase() : (words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase());
+  const lastWord = words[words.length - 1];
+  const lastInitial = lastWord.charAt(0).toUpperCase();
+  return `${firstName} ${lastInitial}.`;
+}
+
 export function getTodayISO(): string {
   const d = new Date();
   const year = d.getFullYear();

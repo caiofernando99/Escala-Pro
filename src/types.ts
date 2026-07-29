@@ -105,7 +105,18 @@ export interface ProcessKnowledge {
   active?: boolean;
 }
 
+export interface BriefingConfig {
+  coverBgUrl?: string;
+  motivationalQuote?: string;
+  showQuote?: boolean;
+  pdfUrl?: string;
+  pdfPageNumber?: number;
+  pdfDirectImageUrl?: string;
+  qaQuestions?: string[];
+}
+
 export interface AppState {
+  updatedAtMs?: number;
   brandId?: string;
   teamName: string;
   manager: string;
@@ -143,4 +154,5 @@ export interface AppState {
   showEmployeePortal?: boolean;
   selectedShiftFilter?: string;
   selectedTLFilter?: string;
+  briefingConfig?: BriefingConfig;
 }

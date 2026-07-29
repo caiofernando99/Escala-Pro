@@ -1,10 +1,14 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, RefreshCw, X, Sparkles } from 'lucide-react';
 
 export const FloatingToast: React.FC = () => {
-  const { noticeMessage, noticeActionLabel, onNoticeAction, showNotice } = useApp();
+  const { noticeMessage, noticeType, noticeActionLabel, onNoticeAction, showNotice } = useApp();
+
+  const isSyncNotice =
+    noticeType === 'sync' ||
+    (noticeMessage && (noticeMessage.toLowerCase().includes('sincroniz') || noticeMessage.toLowerCase().includes('tempo real')));
 
   return (
     <AnimatePresence>
@@ -16,10 +20,22 @@ export const FloatingToast: React.FC = () => {
           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
           className="fixed bottom-5 right-5 sm:right-6 z-[9999] max-w-sm w-auto"
         >
-          <div className="bg-[var(--ink)] text-[var(--paper)] border border-[var(--line)] px-3.5 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-md">
-            <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
+          <div
+            className={`bg-[var(--ink)] text-[var(--paper)] border px-3.5 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-md ${
+              isSyncNotice
+                ? 'border-purple-500/50 shadow-purple-500/20 ring-1 ring-purple-500/30'
+                : 'border-[var(--line)]'
+            }`}
+          >
+            {isSyncNotice ? (
+              <div className="w-7 h-7 rounded-full bg-purple-500/25 text-purple-300 flex items-center justify-center shrink-0 border border-purple-400/40 animate-pulse">
+                <RefreshCw className="w-4 h-4 animate-spin text-purple-300" />
+              </div>
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            )}
 
             <div className="text-xs font-bold leading-tight truncate max-w-[220px]">
               {noticeMessage}
@@ -51,3 +67,4 @@ export const FloatingToast: React.FC = () => {
     </AnimatePresence>
   );
 };
+

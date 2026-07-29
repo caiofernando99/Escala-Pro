@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { SearchInput } from '../components/SearchInput';
+import { MultiSelectFilter } from '../components/MultiSelectFilter';
 import {
   Shuffle,
   Briefcase,
@@ -14,6 +15,7 @@ import {
   Sparkles,
   Undo2,
   Compass,
+  Zap,
   Eye,
   EyeOff,
   Trash2,
@@ -42,8 +44,19 @@ export const AssignmentView: React.FC = () => {
   } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
+  const [selectedShifts, setSelectedShifts] = useState<string[]>(
+    state.selectedShiftFilter && state.selectedShiftFilter !== 'ALL' && state.selectedShiftFilter !== 'todos'
+      ? [state.selectedShiftFilter]
+      : []
+  );
+  const [selectedTLs, setSelectedTLs] = useState<string[]>(
+    state.selectedTLFilter && state.selectedTLFilter !== 'ALL' && state.selectedTLFilter !== 'todos'
+      ? [state.selectedTLFilter]
+      : []
+  );
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [showInactiveTasks, setShowInactiveTasks] = useState(false);
   const [isAutoAssigning, setIsAutoAssigning] = useState(false);
 
@@ -60,44 +73,89 @@ export const AssignmentView: React.FC = () => {
   const [showOtherTasks, setShowOtherTasks] = useState(false);
 
   const activeDate = state.selectedDate;
-  const activeShift = state.selectedShiftFilter || 'ALL';
-  const activeTL = state.selectedTLFilter || 'ALL';
 
-  // Available unique shifts & TLs for filters
+  // Available unique shifts & TLs for multi-select options
   const defaultShifts = ['Geral', 'T1', 'T2', 'T3', 'T4', 'T5'];
   const colShifts = state.collaborators.map((c) => c.shift || 'Geral');
   const availableShifts = Array.from(new Set([...defaultShifts, ...colShifts]));
+  const shiftOptions = availableShifts.map((s) => ({ label: `Turno ${s}`, value: s }));
 
-  const availableTLsForShift = Array.from(
+  const availableTLs = Array.from(
     new Set(
       state.collaborators
-        .filter((c) => activeShift === 'ALL' || activeShift === 'todos' || (c.shift || 'Geral') === activeShift)
+        .filter((c) => selectedShifts.length === 0 || selectedShifts.includes(c.shift || 'Geral'))
         .map((c) => c.teamLeader || state.defaultTeamLeader || 'Sem Time')
     )
   );
+  const tlOptions = availableTLs.map((tl) => ({ label: tl, value: tl }));
+
+  const roleOptions = state.roles.map((r) => ({ label: r, value: r }));
+  const categoryOptions = state.categories.map((c) => ({ label: c, value: c }));
+  const skillOptions = state.skills.map((s) => ({ label: s, value: s }));
 
   // Active present people today strictly matching active shift & team leader filters
   const presentPeople = state.collaborators.filter((c) => {
     const colShift = c.shift || 'Geral';
-    const matchesShift = activeShift === 'ALL' || activeShift === 'todos' || colShift === activeShift;
+    const matchesShift = selectedShifts.length === 0 || selectedShifts.includes(colShift);
     const colTL = c.teamLeader || state.defaultTeamLeader || 'Sem Time';
-    const matchesTL = activeTL === 'ALL' || activeTL === 'todos' || colTL === activeTL;
+    const matchesTL = selectedTLs.length === 0 || selectedTLs.includes(colTL);
     if (!matchesShift || !matchesTL) return false;
 
     const statusInfo = getCollaboratorStatus(c, activeDate, state);
     return statusInfo.status === 'presente';
   });
 
-  // Filter present people by search term, role, category
+  // Filter present people by search term, role, category, skill
   const filteredPeople = presentPeople.filter(
     (c) =>
       matchesSearch(c.name, searchTerm) &&
-      (filterRole ? c.role === filterRole : true) &&
-      (filterCategory ? c.category === filterCategory : true)
+      (selectedRoles.length === 0 || selectedRoles.includes(c.role)) &&
+      (selectedCategories.length === 0 || selectedCategories.includes(c.category)) &&
+      (selectedSkills.length === 0 || selectedSkills.some((s) => Number(c.skills?.[s]) > 0))
   );
 
   const assignedSet = new Set(state.tasks.flatMap((t) => t.members));
   const unassignedPeople = filteredPeople.filter((p) => !assignedSet.has(p.id));
+
+  // Helper to render skill badges for a collaborator
+  const renderSkillBadges = (col: Collaborator, maxDisplay = 2) => {
+    if (!col.skills) return null;
+    const activeEntries = Object.entries(col.skills).filter(([_, lvl]) => Number(lvl) > 0);
+    if (activeEntries.length === 0) return null;
+
+    const displayed = activeEntries.slice(0, maxDisplay);
+    const remaining = activeEntries.length - maxDisplay;
+
+    return (
+      <div className="flex flex-wrap items-center gap-1 mt-0.5">
+        {displayed.map(([sName, lvlVal]) => {
+          const lvl = Number(lvlVal);
+          const lvlLabel = lvl === 3 ? 'Nv 3' : lvl === 2 ? 'Nv 2' : 'Nv 1';
+          return (
+            <span
+              key={sName}
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md text-[8.5px] font-black bg-purple-50 text-purple-900 dark:bg-purple-950/80 dark:text-purple-200 border border-purple-200 dark:border-purple-800 shrink-0"
+              title={`Skill: ${sName} (${lvlLabel})`}
+            >
+              <Sparkles className="w-2.5 h-2.5 text-purple-500 shrink-0" />
+              <span className="truncate max-w-[85px]">{sName}</span>
+              <span className="text-[7.5px] opacity-80 bg-purple-200/80 dark:bg-purple-900/90 px-0.5 rounded font-bold">
+                {lvlLabel}
+              </span>
+            </span>
+          );
+        })}
+        {remaining > 0 && (
+          <span
+            className="text-[8px] font-black text-purple-800 dark:text-purple-200 bg-purple-100 dark:bg-purple-950/90 px-1 py-0.2 rounded-md border border-purple-200 dark:border-purple-800 shrink-0"
+            title={`${remaining} outra(s) skill(s)`}
+          >
+            +{remaining}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   // Active tasks vs all tasks
   const activeTasksList = state.tasks.filter((t) => t.active !== false);
@@ -228,17 +286,33 @@ export const AssignmentView: React.FC = () => {
               <span>Desfazer (Ctrl+Z)</span>
             </button>
 
-            <button
-              onClick={() => {
-                setWizardStep(0);
-                setShowGuidedWizard(true);
-              }}
-              className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-lg flex items-center gap-1 shadow-2xs cursor-pointer transition-colors border border-amber-400"
-              title="Abrir assistente passo a passo por tarefa"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Modo Guiado</span>
-            </button>
+            {/* Mode Switcher */}
+            <div className="flex items-center p-1 bg-[var(--bg)] border border-[var(--line)] rounded-xl text-xs font-extrabold">
+              <button
+                onClick={() => setShowGuidedWizard(false)}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  !showGuidedWizard
+                    ? 'bg-[var(--paper)] text-[var(--primary)] shadow-2xs font-black'
+                    : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                }`}
+              >
+                Visão Geral (Grid)
+              </button>
+              <button
+                onClick={() => {
+                  setWizardStep(0);
+                  setShowGuidedWizard(true);
+                }}
+                className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                  showGuidedWizard
+                    ? 'bg-[var(--primary)] text-white shadow-2xs font-black'
+                    : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Modo Guiado Passo a Passo</span>
+              </button>
+            </div>
 
             <button
               onClick={() => {
@@ -253,8 +327,8 @@ export const AssignmentView: React.FC = () => {
                     }
                     const colShift = col.shift || 'Geral';
                     const colTL = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
-                    const matchesShift = activeShift === 'ALL' || activeShift === 'todos' || colShift === activeShift;
-                    const matchesTL = activeTL === 'ALL' || activeTL === 'todos' || colTL === activeTL;
+                    const matchesShift = selectedShifts.length === 0 || selectedShifts.includes(colShift);
+                    const matchesTL = selectedTLs.length === 0 || selectedTLs.includes(colTL);
                     const statusInfo = getCollaboratorStatus(col, activeDate, state);
 
                     if (statusInfo.status !== 'presente' || !matchesShift || !matchesTL) {
@@ -302,106 +376,94 @@ export const AssignmentView: React.FC = () => {
           </div>
         </div>
 
-        {/* Filter and Search Bar */}
-        <div className="flex flex-wrap items-center gap-2 text-xs bg-[var(--bg)] p-2 rounded-xl border border-[var(--line)]">
-          {/* Seletor de Turno */}
-          <div className="flex items-center gap-1 bg-[var(--paper)] px-2 py-1 rounded-lg border border-[var(--line)]">
-            <span className="text-[var(--primary)] font-black text-[10px] uppercase tracking-wider">Turno:</span>
-            <select
-              value={activeShift}
-              onChange={(e) => setSelectedGlobalFilters({ shift: e.target.value, teamLeader: activeTL })}
-              className="bg-transparent border-none text-xs font-black text-[var(--ink)] cursor-pointer focus:outline-none"
-            >
-              <option value="ALL">Todos os Turnos</option>
-              {availableShifts.map((s) => (
-                <option key={s} value={s}>
-                  Turno {s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Seletor de Time / TL */}
-          <div className="flex items-center gap-1 bg-[var(--paper)] px-2 py-1 rounded-lg border border-[var(--line)]">
-            <span className="text-[var(--primary)] font-black text-[10px] uppercase tracking-wider">Time:</span>
-            <select
-              value={activeTL}
-              onChange={(e) => setSelectedGlobalFilters({ shift: activeShift, teamLeader: e.target.value })}
-              className="bg-transparent border-none text-xs font-black text-[var(--ink)] cursor-pointer focus:outline-none max-w-[140px] truncate"
-            >
-              <option value="ALL">
-                {activeShift !== 'ALL' && activeShift !== 'todos' ? `Todos (${activeShift})` : 'Todos os Times'}
-              </option>
-              {availableTLsForShift.map((tl) => (
-                <option key={tl} value={tl}>
-                  {tl}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <SearchInput
-            value={searchTerm}
-            onChange={setSearchTerm}
-            placeholder="Pesquisar colaborador..."
-            className="w-full sm:w-44"
+        {/* Multi-Select Filter and Search Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 text-xs bg-[var(--bg)] p-2.5 rounded-xl border border-[var(--line)] items-end">
+          <MultiSelectFilter
+            label="Turno"
+            options={shiftOptions}
+            selectedValues={selectedShifts}
+            onChange={setSelectedShifts}
+            placeholder="Todos os turnos"
+            allLabel="Todos os Turnos"
           />
 
-          <div className="flex items-center gap-1">
-            <Briefcase className="w-3.5 h-3.5 text-[var(--muted)]" />
-            <select
-              value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value)}
-              className="bg-[var(--paper)] border border-[var(--line)] rounded-lg px-2 py-0.5 text-xs font-bold text-[var(--ink)] cursor-pointer"
-            >
-              <option value="">Todos os Cargos</option>
-              {state.roles.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectFilter
+            label="Time / TL"
+            options={tlOptions}
+            selectedValues={selectedTLs}
+            onChange={setSelectedTLs}
+            placeholder="Todos os times"
+            allLabel="Todos os Times"
+            icon={<Users className="w-3 h-3 text-[var(--primary)]" />}
+          />
 
-          <div className="flex items-center gap-1">
-            <Tag className="w-3.5 h-3.5 text-[var(--muted)]" />
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="bg-[var(--paper)] border border-[var(--line)] rounded-lg px-2 py-0.5 text-xs font-bold text-[var(--ink)] cursor-pointer"
-            >
-              <option value="">Todas as Categorias</option>
-              {state.categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectFilter
+            label="Cargo"
+            options={roleOptions}
+            selectedValues={selectedRoles}
+            onChange={setSelectedRoles}
+            placeholder="Todos os cargos"
+            allLabel="Todos os Cargos"
+            icon={<Briefcase className="w-3 h-3 text-[var(--primary)]" />}
+          />
 
-          <label className="flex items-center gap-1.5 px-2 py-0.5 bg-[var(--bg)] border border-[var(--line)] rounded-lg font-bold text-[11px] text-[var(--ink)] cursor-pointer hover:border-[var(--primary-border)] ml-auto">
-            <input
-              type="checkbox"
-              checked={showInactiveTasks}
-              onChange={(e) => setShowInactiveTasks(e.target.checked)}
-              className="w-3.5 h-3.5 rounded accent-[var(--primary)] cursor-pointer"
+          <MultiSelectFilter
+            label="Categoria"
+            options={categoryOptions}
+            selectedValues={selectedCategories}
+            onChange={setSelectedCategories}
+            placeholder="Todas as categorias"
+            allLabel="Todas as Categorias"
+            icon={<Tag className="w-3 h-3 text-[var(--primary)]" />}
+          />
+
+          <MultiSelectFilter
+            label="Skill"
+            options={skillOptions}
+            selectedValues={selectedSkills}
+            onChange={setSelectedSkills}
+            placeholder="Todas as skills"
+            allLabel="Todas as Skills"
+            icon={<Sparkles className="w-3 h-3 text-purple-500" />}
+          />
+
+          <div className="flex flex-col gap-1">
+            <SearchInput
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Pesquisar..."
+              className="w-full"
             />
-            <span>Exibir Inativas ({state.tasks.length - activeTasksList.length})</span>
-          </label>
+          </div>
 
-          {(searchTerm || filterRole || filterCategory) && (
-            <button
-              onClick={() => {
-                setSearchTerm('');
-                setFilterRole('');
-                setFilterCategory('');
-              }}
-              className="text-xs font-black text-red-600 hover:underline flex items-center gap-0.5 cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Limpar Filtros</span>
-            </button>
-          )}
+          <div className="sm:col-span-2 lg:col-span-6 flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[var(--line)]">
+            <label className="flex items-center gap-1.5 px-2 py-1 bg-[var(--paper)] border border-[var(--line)] rounded-lg font-bold text-[11px] text-[var(--ink)] cursor-pointer hover:border-[var(--primary-border)]">
+              <input
+                type="checkbox"
+                checked={showInactiveTasks}
+                onChange={(e) => setShowInactiveTasks(e.target.checked)}
+                className="w-3.5 h-3.5 rounded accent-[var(--primary)] cursor-pointer"
+              />
+              <span>Exibir Tarefas Inativas ({state.tasks.length - activeTasksList.length})</span>
+            </label>
+
+            {(searchTerm || selectedShifts.length > 0 || selectedTLs.length > 0 || selectedRoles.length > 0 || selectedCategories.length > 0 || selectedSkills.length > 0) && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedShifts([]);
+                  setSelectedTLs([]);
+                  setSelectedRoles([]);
+                  setSelectedCategories([]);
+                  setSelectedSkills([]);
+                }}
+                className="text-xs font-black text-rose-600 hover:underline flex items-center gap-1 cursor-pointer bg-rose-50 dark:bg-rose-950/60 px-2 py-1 rounded-lg border border-rose-200 dark:border-rose-900"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Limpar Filtros</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -453,6 +515,8 @@ export const AssignmentView: React.FC = () => {
                       {col.category || 'Operacional'}
                     </span>
                   </div>
+
+                  {renderSkillBadges(col, 3)}
                 </div>
               ))
             ) : (
@@ -550,8 +614,8 @@ export const AssignmentView: React.FC = () => {
                           const statusInfo = getCollaboratorStatus(col, activeDate, state);
                           const colShift = col.shift || 'Geral';
                           const colTL = col.teamLeader || state.defaultTeamLeader || 'Sem Time';
-                          const matchesShift = activeShift === 'ALL' || activeShift === 'todos' || colShift === activeShift;
-                          const matchesTL = activeTL === 'ALL' || activeTL === 'todos' || colTL === activeTL;
+                          const matchesShift = selectedShifts.length === 0 || selectedShifts.includes(colShift);
+                          const matchesTL = selectedTLs.length === 0 || selectedTLs.includes(colTL);
                           const isPresent = statusInfo.status === 'presente';
                           const isFilteredOut = !matchesShift || !matchesTL;
 
@@ -594,6 +658,7 @@ export const AssignmentView: React.FC = () => {
                                   <span className="text-[8.5px] text-[var(--muted)] truncate block font-medium">
                                     {col.role || 'Geral'} • {col.category || 'Geral'}
                                   </span>
+                                  {renderSkillBadges(col, 2)}
                                 </div>
                               </div>
                               <button
@@ -654,6 +719,7 @@ export const AssignmentView: React.FC = () => {
                     {selectedCol.category || 'Sem cat'}
                   </span>
                 </div>
+                {renderSkillBadges(selectedCol, 3)}
               </div>
 
               <button
@@ -841,6 +907,7 @@ export const AssignmentView: React.FC = () => {
                           <span className="text-[10px] text-[var(--muted)]">
                             {col.role || 'Geral'} • {col.category || 'Operacional'}
                           </span>
+                          {renderSkillBadges(col, 2)}
                         </div>
 
                         <button
