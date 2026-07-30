@@ -42,11 +42,24 @@ export interface BreakSlot {
 }
 
 export interface AutoBackupInfo {
+  id?: string;
   timestamp: string;
   formattedDate: string;
   reason: string;
   collaboratorCount: number;
   taskCount: number;
+  teamName?: string;
+}
+
+export interface BackupSnapshot {
+  id: string;
+  timestamp: string;
+  formattedDate: string;
+  reason: string;
+  collaboratorCount: number;
+  taskCount: number;
+  teamName: string;
+  state: AppState;
 }
 
 export interface DailyReport {
@@ -93,6 +106,14 @@ export interface DeletedCollaborator {
 
 export type ProcessType = 'caracteristica' | 'curiosidade' | 'explicacao' | 'procedimento' | 'seguranca' | 'qualidade';
 
+export type SlideId = 'cover' | 'operational_pdf' | 'process' | 'scale' | 'qa';
+
+export interface SlideConfigItem {
+  id: SlideId;
+  enabled: boolean;
+  title?: string;
+}
+
 export interface ProcessKnowledge {
   id: string;
   title: string;
@@ -113,6 +134,15 @@ export interface BriefingConfig {
   pdfPageNumber?: number;
   pdfDirectImageUrl?: string;
   qaQuestions?: string[];
+  qaTitle?: string;
+  qaSubtitle?: string;
+  qaDescription?: string;
+  qaBgUrl?: string;
+  qaDirectImageUrl?: string;
+  qaSafetyText?: string;
+  qaQualityText?: string;
+  qaSupportText?: string;
+  slideOrder?: SlideConfigItem[];
 }
 
 export interface AppState {

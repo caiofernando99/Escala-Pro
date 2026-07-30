@@ -59,6 +59,7 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
   const [showMobileImageModal, setShowMobileImageModal] = useState(false);
   const [isGeneratingMobileImage, setIsGeneratingMobileImage] = useState(false);
   const [mobileAbbreviateNames, setMobileAbbreviateNames] = useState(true);
+  const [imageTheme, setImageTheme] = useState<'dark' | 'light' | 'emerald' | 'purple'>('dark');
   const mobileCardRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadMobileImage = async () => {
@@ -223,10 +224,10 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             onClick={() => setShowMobileImageModal(true)}
-            className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-black text-xs rounded-lg flex items-center gap-1.5 shadow-md transition-all border border-purple-300/40 cursor-pointer hover:scale-102"
+            className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-lg flex items-center gap-1.5 shadow-md transition-all border border-purple-300/40 cursor-pointer hover:scale-102"
           >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>Gerar Imagem Celular (9x32)</span>
+            <FileImage className="w-3.5 h-3.5" />
+            <span>Gerar Imagem (9x32)</span>
           </button>
 
           <button
@@ -556,47 +557,70 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
         )}
       </div>
 
-      {/* MOBILE 9x32 HIGH-RES IMAGE GENERATOR MODAL */}
+      {/* 9x32 HIGH-RES IMAGE GENERATOR MODAL */}
       {showMobileImageModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 max-w-2xl w-full max-h-[90vh] flex flex-col justify-between space-y-4 shadow-2xl text-white">
+          <div className="bg-[var(--paper)] border border-[var(--line)] rounded-3xl p-5 max-w-2xl w-full max-h-[90vh] flex flex-col justify-between space-y-4 shadow-2xl text-[var(--ink)]">
             {/* Modal Header Controls */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black">
-                  <Smartphone className="w-5 h-5" />
+                  <FileImage className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-wider">
-                    Gerador de Imagem para Celular (Formato 9x32)
+                  <h3 className="text-sm font-black uppercase tracking-wider">
+                    Gerador de Imagem 9x32
                   </h3>
-                  <p className="text-[11px] text-slate-400 font-medium">
-                    Alta resolução otimizada para leitura em smartphones via WhatsApp / Telegram
+                  <p className="text-[11px] text-[var(--muted)] font-medium">
+                    Alta resolução no formato 9x32 para compartilhamento e impressão da escala
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={() => setShowMobileImageModal(false)}
-                className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                className="p-1.5 hover:bg-[var(--bg)] rounded-xl text-[var(--muted)] hover:text-[var(--ink)] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Options Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-xs">
-              <div className="flex items-center gap-2">
+            {/* Options Bar & Theme Selector */}
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-[var(--bg)] p-2.5 rounded-xl border border-[var(--line)] text-xs">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setMobileAbbreviateNames(!mobileAbbreviateNames)}
                   className={`px-3 py-1.5 rounded-lg font-black text-xs border cursor-pointer transition-all ${
                     mobileAbbreviateNames
                       ? 'bg-purple-600 text-white border-purple-500 shadow-2xs'
-                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                      : 'bg-[var(--paper)] text-[var(--muted)] border-[var(--line)]'
                   }`}
                 >
-                  {mobileAbbreviateNames ? 'Nomes Abreviados (ANA B.)' : 'Nomes Completos'}
+                  {mobileAbbreviateNames ? 'Nomes Abreviados' : 'Nomes Completos'}
                 </button>
+
+                {/* Theme Selector */}
+                <div className="flex items-center gap-1 bg-[var(--paper)] p-1 rounded-lg border border-[var(--line)]">
+                  <span className="text-[10px] font-bold text-[var(--muted)] px-1">Tema:</span>
+                  {[
+                    { id: 'dark', label: 'Dark' },
+                    { id: 'light', label: 'Light' },
+                    { id: 'emerald', label: 'Verde' },
+                    { id: 'purple', label: 'Roxo' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setImageTheme(t.id as any)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-extrabold cursor-pointer transition-all ${
+                        imageTheme === t.id
+                          ? 'bg-[var(--primary)] text-[var(--primary-fg)] shadow-2xs'
+                          : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <button
@@ -610,29 +634,41 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
             </div>
 
             {/* Preview Stage (9x32 Card Container for html2canvas capture) */}
-            <div className="flex-1 overflow-y-auto pr-1 flex justify-center bg-slate-950 p-4 rounded-2xl border border-slate-800">
+            <div className="flex-1 overflow-y-auto pr-1 flex justify-center bg-slate-950/20 p-4 rounded-2xl border border-[var(--line)]">
               <div
                 ref={mobileCardRef}
-                className="w-[420px] bg-slate-900 text-slate-100 p-5 rounded-2xl border border-purple-500/30 shadow-2xl space-y-4 font-sans text-xs"
+                className={`w-[420px] p-5 rounded-2xl border shadow-2xl space-y-4 font-sans text-xs transition-colors ${
+                  imageTheme === 'light'
+                    ? 'bg-slate-50 text-slate-900 border-purple-200'
+                    : imageTheme === 'emerald'
+                    ? 'bg-emerald-950 text-emerald-50 border-emerald-500/30'
+                    : imageTheme === 'purple'
+                    ? 'bg-purple-950 text-purple-50 border-purple-500/30'
+                    : 'bg-slate-900 text-slate-100 border-purple-500/30'
+                }`}
                 style={{ minHeight: '1200px' }}
               >
                 {/* Image Card Header */}
-                <div className="text-center border-b-2 border-purple-500/50 pb-3 space-y-1 bg-gradient-to-b from-purple-900/30 to-transparent p-3 rounded-xl">
+                <div className={`text-center border-b-2 pb-3 space-y-1 p-3 rounded-xl ${
+                  imageTheme === 'light'
+                    ? 'border-purple-300 bg-purple-50/60'
+                    : 'border-purple-500/50 bg-gradient-to-b from-purple-900/30 to-transparent'
+                }`}>
                   <div className="text-[10px] font-black uppercase text-purple-400 tracking-widest flex items-center justify-center gap-1">
                     <Sparkles className="w-3 h-3" />
                     <span>Briefing & Escala Operacional</span>
                   </div>
-                  <h2 className="text-base font-black text-white uppercase tracking-wide">
+                  <h2 className={`text-base font-black uppercase tracking-wide ${imageTheme === 'light' ? 'text-slate-900' : 'text-white'}`}>
                     {state.teamName || 'EQUIPE OPERACIONAL'}
                   </h2>
-                  <p className="text-[11px] font-bold text-slate-300">
+                  <p className={`text-[11px] font-bold ${imageTheme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                     {formatDateLongBR(activeDate)} • Turno {state.teamShift || 'T2'}
                   </p>
                   <div className="flex items-center justify-center gap-2 pt-1 text-[10px] font-extrabold">
-                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-md">
-                      {presentPeople.length} Colaboradores Presentes
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 rounded-md">
+                      {presentPeople.length} Colaboradores
                     </span>
-                    <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/40 rounded-md">
+                    <span className="px-2 py-0.5 bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/40 rounded-md">
                       {state.sector || 'Operacional'}
                     </span>
                   </div>
@@ -640,7 +676,9 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
 
                 {/* Tasks & Allocations Section */}
                 <div className="space-y-3">
-                  <div className="text-[11px] font-black uppercase text-slate-400 border-b border-slate-800 pb-1 flex items-center justify-between">
+                  <div className={`text-[11px] font-black uppercase border-b pb-1 flex items-center justify-between ${
+                    imageTheme === 'light' ? 'text-slate-500 border-slate-200' : 'text-slate-400 border-slate-800'
+                  }`}>
                     <span>1. Dimensionamento de Tarefas</span>
                     <span className="text-[9px] text-purple-400">{state.tasks.length} Tarefas</span>
                   </div>
@@ -653,42 +691,71 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
 
                       if (members.length === 0) return null;
 
+                      // Group members by break time for visual dividers
+                      const timeGroups = new Map<string, typeof members>();
+                      members.forEach((person) => {
+                        const breakTime = getBreakTime(person.id) || 'Sem Pausa';
+                        if (!timeGroups.has(breakTime)) {
+                          timeGroups.set(breakTime, []);
+                        }
+                        timeGroups.get(breakTime)!.push(person);
+                      });
+
                       return (
                         <div
                           key={task.id}
-                          className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 space-y-1.5"
+                          className={`border rounded-xl p-3 space-y-2 ${
+                            imageTheme === 'light'
+                              ? 'bg-white border-slate-200 shadow-2xs'
+                              : 'bg-slate-950/80 border-slate-800'
+                          }`}
                         >
-                          <div className="flex items-center justify-between border-b border-slate-800/80 pb-1">
-                            <span className="font-black text-xs text-white uppercase tracking-wide">
+                          <div className={`flex items-center justify-between border-b pb-1 ${
+                            imageTheme === 'light' ? 'border-slate-200' : 'border-slate-800/80'
+                          }`}>
+                            <span className={`font-black text-xs uppercase tracking-wide ${imageTheme === 'light' ? 'text-slate-900' : 'text-white'}`}>
                               {task.name}
                             </span>
-                            <span className="px-2 py-0.2 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded text-[10px] font-black">
+                            <span className="px-2 py-0.2 bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 rounded text-[10px] font-black">
                               {members.length}
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-1 gap-1">
-                            {members.map((person) => {
-                              const breakTime = getBreakTime(person.id);
-                              const displayName = mobileAbbreviateNames
-                                ? abbreviateName(person.name, true)
-                                : person.name;
-
-                              return (
-                                <div
-                                  key={person.id}
-                                  className="flex items-center justify-between bg-slate-900 border border-slate-800/80 rounded-lg px-2.5 py-1 text-[11px]"
-                                >
-                                  <span className="font-bold text-slate-200 truncate pr-2">
-                                    {displayName}
-                                  </span>
-                                  <span className="text-[10px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.2 rounded shrink-0 flex items-center gap-1">
+                          <div className="space-y-2">
+                            {Array.from(timeGroups.entries()).map(([timeLabel, groupMembers], gIdx) => (
+                              <div key={gIdx} className="space-y-1">
+                                <div className="flex items-center justify-between px-2 py-0.5 bg-amber-500/10 border-b border-amber-500/20 rounded text-[10px] font-black text-amber-500">
+                                  <span className="flex items-center gap-1">
                                     <Clock className="w-2.5 h-2.5" />
-                                    <span>{breakTime}</span>
+                                    <span>{timeLabel}</span>
                                   </span>
+                                  <span>{groupMembers.length}p</span>
                                 </div>
-                              );
-                            })}
+
+                                <div className="grid grid-cols-1 gap-1">
+                                  {groupMembers.map((person) => {
+                                    const displayName = mobileAbbreviateNames
+                                      ? abbreviateName(person.name, true)
+                                      : person.name;
+
+                                    return (
+                                      <div
+                                        key={person.id}
+                                        className={`flex items-center justify-between border rounded-lg px-2.5 py-1 text-[11px] ${
+                                          imageTheme === 'light'
+                                            ? 'bg-slate-50 border-slate-200 text-slate-800'
+                                            : 'bg-slate-900 border-slate-800/80 text-slate-200'
+                                        }`}
+                                      >
+                                        <span className="font-bold truncate">
+                                          {displayName}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       );
@@ -698,9 +765,11 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
 
                 {/* Meal Times Section */}
                 <div className="space-y-2 pt-2">
-                  <div className="text-[11px] font-black uppercase text-slate-400 border-b border-slate-800 pb-1 flex items-center justify-between">
+                  <div className={`text-[11px] font-black uppercase border-b pb-1 flex items-center justify-between ${
+                    imageTheme === 'light' ? 'text-slate-500 border-slate-200' : 'text-slate-400 border-slate-800'
+                  }`}>
                     <span>2. Horários de Refeição & Pausas</span>
-                    <span className="text-[9px] text-amber-400">Escala de Turno</span>
+                    <span className="text-[9px] text-amber-500">Escala de Turno</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -715,11 +784,15 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
                       return (
                         <div
                           key={slot.id}
-                          className="bg-slate-950 border border-amber-500/20 rounded-xl p-2 space-y-1"
+                          className={`border rounded-xl p-2 space-y-1 ${
+                            imageTheme === 'light'
+                              ? 'bg-amber-50/50 border-amber-200'
+                              : 'bg-slate-950 border-amber-500/20'
+                          }`}
                         >
-                          <div className="flex items-center justify-between text-[10px] font-black text-amber-300 border-b border-slate-800 pb-1">
+                          <div className="flex items-center justify-between text-[10px] font-black text-amber-500 border-b border-slate-800/20 pb-1">
                             <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-amber-400" />
+                              <Clock className="w-3 h-3 text-amber-500" />
                               <span>{slot.time}</span>
                             </span>
                             <span>{membersInSlot.length}p</span>
@@ -729,7 +802,9 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
                             {membersInSlot.map((m) => (
                               <div
                                 key={m.id}
-                                className="text-[10px] font-bold text-slate-300 truncate"
+                                className={`text-[10px] font-bold truncate ${
+                                  imageTheme === 'light' ? 'text-slate-700' : 'text-slate-300'
+                                }`}
                               >
                                 • {mobileAbbreviateNames ? abbreviateName(m.name, true) : m.name}
                               </div>
@@ -742,12 +817,16 @@ export const ShareView: React.FC<ShareViewProps> = ({ onNavigate }) => {
                 </div>
 
                 {/* Security & Leadership Footer Notes */}
-                <div className="pt-2 border-t border-slate-800 space-y-1.5 text-[10px]">
-                  <div className="p-2 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-emerald-300 font-bold flex items-center gap-1.5">
+                <div className={`pt-2 border-t space-y-1.5 text-[10px] ${
+                  imageTheme === 'light' ? 'border-slate-200' : 'border-slate-800'
+                }`}>
+                  <div className="p-2 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-emerald-500 font-bold flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
                     <span>Uso obrigatório de EPIs completos durante o turno.</span>
                   </div>
-                  <div className="text-center text-[9px] text-slate-500 font-medium pt-1">
+                  <div className={`text-center text-[9px] font-medium pt-1 ${
+                    imageTheme === 'light' ? 'text-slate-400' : 'text-slate-500'
+                  }`}>
                     Gerado via Gestão Operacional & Briefing • {formatDateBR(activeDate)}
                   </div>
                 </div>

@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { AppState, AutoBackupInfo, BreakSlot, BriefingConfig, Collaborator, DeletedCollaborator, OnlineSpreadsheetConfig, ProcessKnowledge, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
+import { AppState, AutoBackupInfo, BackupSnapshot, BreakSlot, BriefingConfig, Collaborator, DeletedCollaborator, OnlineSpreadsheetConfig, ProcessKnowledge, ScheduledAbsence, ShiftGroup, Task, ThemeOption } from '../types';
 import { generateId, isScaleOff, getTodayISO, formatDateBR, getCollaboratorStatus, formatPersonName } from '../utils/helpers';
 import { initialAppState } from '../utils/initialData';
 
 const STORAGE_KEY = 'people-scheduler-v3';
 const AUTO_BACKUP_KEY = 'escalapro_auto_backup_v1';
+const BACKUP_SNAPSHOTS_KEY = 'escalapro_backup_history_v2';
 
 interface AppContextType {
   state: AppState;
@@ -54,12 +55,19 @@ interface AppContextType {
   saveDailyReport: () => void;
   saveHistory: () => void;
   importFullState: (newState: Partial<AppState>) => void;
+  importFullStateWithBackup: (newState: Partial<AppState>, mode?: 'full' | 'config_only', createSafetyBackup?: boolean) => void;
   importRosterRows: (rows: any[]) => number;
   resetAllData: () => void;
   clearSampleData: () => void;
   lastAutoBackupInfo: AutoBackupInfo | null;
-  createAutoBackup: (reason?: string) => AutoBackupInfo | null;
+  backupHistory: BackupSnapshot[];
+  createAutoBackup: (reason?: string, targetState?: AppState) => AutoBackupInfo | null;
   restoreFromAutoBackup: () => boolean;
+  restoreBackupById: (backupId: string) => boolean;
+  deleteBackupById: (backupId: string) => void;
+  clearBackupHistory: () => void;
+  exportBackupToFile: (snapshot?: BackupSnapshot) => void;
+  generateShareableConnectionLink: () => string;
   disconnectOnlineSpreadsheet: () => void;
   noticeMessage: string | null;
   noticeType?: 'success' | 'sync' | 'info';
@@ -135,17 +143,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     onAction?: (() => void) | null;
   }>({ message: null, noticeType: 'success' });
 
+  const [backupHistory, setBackupHistory] = useState<BackupSnapshot[]>(() => {
+    try {
+      const raw = localStorage.getItem(BACKUP_SNAPSHOTS_KEY);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    } catch {
+      // Fallback
+    }
+    return [];
+  });
+
   const [lastAutoBackupInfo, setLastAutoBackupInfo] = useState<AutoBackupInfo | null>(() => {
     try {
       const raw = localStorage.getItem(AUTO_BACKUP_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         return {
+          id: parsed.id,
           timestamp: parsed.timestamp || '',
           formattedDate: parsed.formattedDate || '',
           reason: parsed.reason || 'Backup Automático',
           collaboratorCount: parsed.state?.collaborators?.length || 0,
           taskCount: parsed.state?.tasks?.length || 0,
+          teamName: parsed.state?.teamName || 'Equipe',
         };
       }
     } catch {
@@ -227,24 +249,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const createAutoBackup = (reason: string = 'Backup de Segurança Pré-Limpeza'): AutoBackupInfo | null => {
+  const createAutoBackup = (
+    reason: string = 'Backup de Segurança',
+    targetState?: AppState
+  ): AutoBackupInfo | null => {
     try {
       const now = new Date();
-      const formattedDate = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-      const backupData = {
+      const formattedDate = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+      const snapshotState = targetState || state;
+      const snapshotId = generateId();
+
+      const newSnapshot: BackupSnapshot = {
+        id: snapshotId,
         timestamp: now.toISOString(),
         formattedDate,
         reason,
-        state,
+        collaboratorCount: snapshotState.collaborators?.length || 0,
+        taskCount: snapshotState.tasks?.length || 0,
+        teamName: snapshotState.teamName || 'Equipe',
+        state: snapshotState,
       };
-      localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify(backupData));
+
+      try {
+        localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify(newSnapshot));
+      } catch (e) {
+        console.warn('Storage full for single backup:', e);
+      }
+
+      setBackupHistory((prev) => {
+        const updated = [newSnapshot, ...prev.filter((s) => s.id !== newSnapshot.id)].slice(0, 15);
+        try {
+          localStorage.setItem(BACKUP_SNAPSHOTS_KEY, JSON.stringify(updated));
+        } catch (err) {
+          console.warn('Could not save full history to localStorage:', err);
+        }
+        return updated;
+      });
+
       const info: AutoBackupInfo = {
+        id: snapshotId,
         timestamp: now.toISOString(),
         formattedDate,
         reason,
-        collaboratorCount: state.collaborators.length,
-        taskCount: state.tasks.length,
+        collaboratorCount: snapshotState.collaborators?.length || 0,
+        taskCount: snapshotState.tasks?.length || 0,
+        teamName: snapshotState.teamName,
       };
+
       setLastAutoBackupInfo(info);
       return info;
     } catch (e) {
@@ -262,6 +313,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const parsed = JSON.parse(raw);
       if (parsed && parsed.state) {
+        createAutoBackup('Backup de Segurança Antes de Restaurar');
         setState(parsed.state);
         showNotice(`Dados restaurados com sucesso do backup automático de ${parsed.formattedDate || 'data anterior'}!`);
         return true;
@@ -271,6 +323,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showNotice('Erro ao tentar restaurar os dados do backup automático.');
     }
     return false;
+  };
+
+  const restoreBackupById = (backupId: string): boolean => {
+    try {
+      const target = backupHistory.find((b) => b.id === backupId);
+      if (!target || !target.state) {
+        showNotice('Ponto de restauração não encontrado.');
+        return false;
+      }
+
+      createAutoBackup(`Backup de Segurança Pré-Restauração de ${target.formattedDate}`);
+      setState({
+        ...target.state,
+        updatedAtMs: Date.now(),
+      });
+      showNotice(`Restaurado com sucesso do ponto: "${target.reason}" (${target.formattedDate})!`);
+      return true;
+    } catch (e) {
+      console.error('Erro ao restaurar do histórico de backup:', e);
+      showNotice('Erro ao restaurar os dados do ponto selecionado.');
+      return false;
+    }
+  };
+
+  const deleteBackupById = (backupId: string) => {
+    setBackupHistory((prev) => {
+      const updated = prev.filter((b) => b.id !== backupId);
+      try {
+        localStorage.setItem(BACKUP_SNAPSHOTS_KEY, JSON.stringify(updated));
+      } catch (err) {}
+      return updated;
+    });
+    showNotice('Ponto de backup removido do histórico.');
+  };
+
+  const clearBackupHistory = () => {
+    setBackupHistory([]);
+    try {
+      localStorage.removeItem(BACKUP_SNAPSHOTS_KEY);
+    } catch (err) {}
+    showNotice('Histórico de backups locais limpo com sucesso.');
+  };
+
+  const exportBackupToFile = (snapshot?: BackupSnapshot) => {
+    const exportData = snapshot ? snapshot.state : state;
+    const teamSlug = (exportData.teamName || 'equipe').replace(/\s+/g, '_').toLowerCase();
+    const fileName = `escalapro-backup-${teamSlug}-${getTodayISO()}.json`;
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotice(`Backup baixado com sucesso: ${fileName}`);
+  };
+
+  const generateShareableConnectionLink = (): string => {
+    const currentConfig = state.onlineSpreadsheet;
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+
+    const params = new URLSearchParams();
+    params.set('view', 'share_connection');
+    params.set('teamName', state.teamName || 'Equipe Operacional');
+    params.set('sector', state.sector || '');
+    params.set('shift', state.teamShift || 'T2');
+
+    if (currentConfig?.url) {
+      params.set('connectSheet', currentConfig.url);
+    }
+    if (currentConfig?.webhookUrl) {
+      params.set('connectWebhook', currentConfig.webhookUrl);
+    }
+    if (currentConfig?.name) {
+      params.set('sheetName', currentConfig.name);
+    }
+
+    return `${baseUrl}?${params.toString()}`;
   };
 
   const disconnectOnlineSpreadsheet = () => {
@@ -1163,30 +1293,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotice('Resumo diário gravado no histórico.');
   };
 
-  const importFullState = (newState: Partial<AppState>) => {
+  const importFullStateWithBackup = (
+    newState: Partial<AppState>,
+    mode: 'full' | 'config_only' = 'full',
+    createSafetyBackup: boolean = true
+  ) => {
+    if (createSafetyBackup) {
+      createAutoBackup(
+        `Backup de Segurança Pré-Importação (${mode === 'config_only' ? 'Somente Estrutura' : 'Substituição Completa'})`
+      );
+    }
+
     const isExampleSpreadsheet =
       newState.onlineSpreadsheet?.url?.includes('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms');
 
     const importedSpreadsheet = isExampleSpreadsheet ? null : newState.onlineSpreadsheet || null;
 
-    updateLocalState((prev) => ({
-      ...initialAppState,
-      ...newState,
-      onlineSpreadsheet: importedSpreadsheet,
-      theme: newState.theme || prev.theme || 'slate',
-    }));
+    updateLocalState((prev) => {
+      if (mode === 'config_only') {
+        // Keep current team members, presence, daily reports, attendance and intervals
+        return {
+          ...prev,
+          teamName: newState.teamName || prev.teamName,
+          sector: newState.sector || prev.sector,
+          manager: newState.manager || prev.manager,
+          teamShift: newState.teamShift || prev.teamShift,
+          defaultTeamLeader: newState.defaultTeamLeader || prev.defaultTeamLeader,
+          teamLeaders: newState.teamLeaders || prev.teamLeaders,
+          roles: newState.roles || prev.roles,
+          categories: newState.categories || prev.categories,
+          skills: newState.skills || prev.skills,
+          tasks: newState.tasks || prev.tasks,
+          breaks: newState.breaks || prev.breaks,
+          theme: newState.theme || prev.theme,
+          brandId: newState.brandId || prev.brandId,
+          briefingConfig: newState.briefingConfig || prev.briefingConfig,
+          processKnowledgeList: newState.processKnowledgeList || prev.processKnowledgeList,
+          onlineSpreadsheet: importedSpreadsheet || prev.onlineSpreadsheet,
+        };
+      } else {
+        // Full replacement
+        return {
+          ...initialAppState,
+          ...newState,
+          onlineSpreadsheet: importedSpreadsheet,
+          theme: newState.theme || prev.theme || 'slate',
+        };
+      }
+    });
 
-    if (importedSpreadsheet?.webhookUrl) {
+    if (mode === 'config_only') {
       showNotice(
-        `Configurações e dados importados! Conexão com "${importedSpreadsheet.name}" restaurada e pronta para sincronizar.`,
-        'Testar Agora',
-        () => {
-          syncToOnlineSpreadsheet();
-        }
+        'Estrutura e parâmetros importados com sucesso! Seus colaboradores e registros presenciais foram mantidos intactos.'
       );
     } else {
-      showNotice('Configurações e dados importados com sucesso!');
+      showNotice(
+        'Backup e cadastros totalmente restaurados com sucesso! (Um ponto de restauração com seus dados anteriores foi salvo).'
+      );
     }
+  };
+
+  const importFullState = (newState: Partial<AppState>) => {
+    importFullStateWithBackup(newState, 'full', true);
   };
 
   const importRosterRows = (rows: any[]) => {
@@ -1878,12 +2046,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         saveDailyReport,
         saveHistory,
         importFullState,
+        importFullStateWithBackup,
         importRosterRows,
         resetAllData,
         clearSampleData,
         lastAutoBackupInfo,
+        backupHistory,
         createAutoBackup,
         restoreFromAutoBackup,
+        restoreBackupById,
+        deleteBackupById,
+        clearBackupHistory,
+        exportBackupToFile,
+        generateShareableConnectionLink,
         disconnectOnlineSpreadsheet,
         noticeMessage: noticeState.message,
         noticeType: noticeState.noticeType,

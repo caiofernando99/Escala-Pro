@@ -6,6 +6,7 @@ import { Header } from './components/Header';
 import { InteractiveEmployeePortal } from './components/InteractiveEmployeePortal';
 import { FloatingToast } from './components/FloatingToast';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
+import { IncomingConnectionModal } from './components/IncomingConnectionModal';
 
 import { HomeView } from './views/HomeView';
 import { CalendarView } from './views/CalendarView';
@@ -22,11 +23,20 @@ import { BriefingView } from './views/BriefingView';
 const TUTORIAL_SEEN_KEY = 'escalapro_tutorial_seen_v1';
 
 const MainLayout: React.FC = () => {
-  const { clearSampleData } = useApp();
+  const { clearSampleData, setOnlineSpreadsheetConfig, syncToOnlineSpreadsheet, showNotice } = useApp();
   const [currentView, setCurrentView] = useState('home');
   const [isStandalonePortal, setIsStandalonePortal] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Cloud connection modal state
+  const [isCloudConnectOpen, setIsCloudConnectOpen] = useState(false);
+  const [urlParamsConnection, setUrlParamsConnection] = useState<{
+    sheetUrl?: string;
+    webhookUrl?: string;
+    sheetName?: string;
+    teamName?: string;
+  } | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -34,10 +44,26 @@ const MainLayout: React.FC = () => {
       setIsStandalonePortal(true);
     }
 
+    // Check for share connection parameters in URL
+    const connectSheet = params.get('connectSheet');
+    const connectWebhook = params.get('connectWebhook');
+    const sheetName = params.get('sheetName');
+    const teamName = params.get('teamName');
+
+    if (connectSheet || connectWebhook) {
+      setUrlParamsConnection({
+        sheetUrl: connectSheet || undefined,
+        webhookUrl: connectWebhook || undefined,
+        sheetName: sheetName || undefined,
+        teamName: teamName || undefined,
+      });
+      setIsCloudConnectOpen(true);
+    }
+
     // Auto-open tutorial on first visit
     try {
       const seen = localStorage.getItem(TUTORIAL_SEEN_KEY);
-      if (!seen) {
+      if (!seen && !connectSheet && !connectWebhook) {
         setIsTutorialOpen(true);
       }
     } catch {
@@ -52,6 +78,22 @@ const MainLayout: React.FC = () => {
     } catch {
       // Fallback
     }
+  };
+
+  const handleConnectCloudDataFromModal = (sheetUrl: string, webhookUrl: string, sheetName: string) => {
+    setOnlineSpreadsheetConfig({
+      name: sheetName || 'Planilha Compartilhada em Nuvem',
+      url: sheetUrl,
+      webhookUrl: webhookUrl || undefined,
+      autoSyncEnabled: true,
+    });
+    setIsCloudConnectOpen(false);
+    // Clear URL params cleanly
+    window.history.replaceState({}, '', window.location.pathname);
+    showNotice('Conexão em nuvem estabelecida com sucesso! Testando sincronização...');
+    setTimeout(() => {
+      syncToOnlineSpreadsheet();
+    }, 500);
   };
 
   if (isStandalonePortal) {
@@ -163,6 +205,18 @@ const MainLayout: React.FC = () => {
         isOpen={isTutorialOpen}
         onClose={handleCloseTutorial}
         onClearSampleData={clearSampleData}
+        onConnectCloudData={() => setIsCloudConnectOpen(true)}
+      />
+
+      {/* Cloud Connection Modal (URL or First Run) */}
+      <IncomingConnectionModal
+        isOpen={isCloudConnectOpen}
+        onClose={() => setIsCloudConnectOpen(false)}
+        initialSheetUrl={urlParamsConnection?.sheetUrl}
+        initialWebhookUrl={urlParamsConnection?.webhookUrl}
+        initialSheetName={urlParamsConnection?.sheetName}
+        teamName={urlParamsConnection?.teamName}
+        onConfirmConnect={handleConnectCloudDataFromModal}
       />
 
       {/* Floating Action Notice Toast at Bottom */}

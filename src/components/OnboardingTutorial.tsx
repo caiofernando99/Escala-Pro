@@ -19,12 +19,14 @@ interface OnboardingTutorialProps {
   isOpen: boolean;
   onClose: () => void;
   onClearSampleData: () => void;
+  onConnectCloudData?: () => void;
 }
 
 export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({
   isOpen,
   onClose,
   onClearSampleData,
+  onConnectCloudData,
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -173,22 +175,34 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({
               Você pode continuar navegando com os colaboradores de exemplo para testar as telas, ou apagar todos os dados de exemplo para cadastrar sua equipe real imediatamente.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+            {onConnectCloudData && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onConnectCloudData();
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Conectar a Dados na Nuvem</span>
+              </button>
+            )}
             <button
               onClick={onClose}
-              className="w-full sm:w-auto px-5 py-2.5 bg-[var(--paper)] border border-[var(--line)] hover:bg-[var(--bg)] text-[var(--ink)] text-xs font-bold rounded-xl transition-all cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2.5 bg-[var(--paper)] border border-[var(--line)] hover:bg-[var(--bg)] text-[var(--ink)] text-xs font-bold rounded-xl transition-all cursor-pointer"
             >
-              Manter Dados de Exemplo (Para Testar)
+              Manter Dados de Exemplo
             </button>
             <button
               onClick={() => {
                 onClearSampleData();
                 onClose();
               }}
-              className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Limpar Exemplo e Começar do Zero</span>
+              <span>Limpar Exemplo</span>
             </button>
           </div>
         </div>
