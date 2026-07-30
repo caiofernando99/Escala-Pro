@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
-import { InteractiveEmployeePortal } from './components/InteractiveEmployeePortal';
 import { FloatingToast } from './components/FloatingToast';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
 import { IncomingConnectionModal } from './components/IncomingConnectionModal';
@@ -25,7 +24,6 @@ const TUTORIAL_SEEN_KEY = 'escalapro_tutorial_seen_v1';
 const MainLayout: React.FC = () => {
   const { clearSampleData, setOnlineSpreadsheetConfig, syncToOnlineSpreadsheet, showNotice } = useApp();
   const [currentView, setCurrentView] = useState('home');
-  const [isStandalonePortal, setIsStandalonePortal] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -40,9 +38,6 @@ const MainLayout: React.FC = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('view') === 'employee_portal') {
-      setIsStandalonePortal(true);
-    }
 
     // Check for share connection parameters in URL
     const connectSheet = params.get('connectSheet');
@@ -96,18 +91,6 @@ const MainLayout: React.FC = () => {
     }, 500);
   };
 
-  if (isStandalonePortal) {
-    return (
-      <InteractiveEmployeePortal
-        isStandalonePortal={true}
-        onClose={() => {
-          setIsStandalonePortal(false);
-          window.history.replaceState({}, '', window.location.pathname);
-        }}
-      />
-    );
-  }
-
   const getPageTitle = (view: string) => {
     switch (view) {
       case 'home':
@@ -124,8 +107,6 @@ const MainLayout: React.FC = () => {
         return 'Horários de Intervalo';
       case 'briefing':
         return 'Montagem de Slide';
-      case 'portal':
-        return 'Portal de Consulta do Colaborador';
       case 'share':
         return 'Resumo para Compartilhar';
       case 'report':
@@ -155,8 +136,6 @@ const MainLayout: React.FC = () => {
         return <BreaksView />;
       case 'briefing':
         return <BriefingView />;
-      case 'portal':
-        return <InteractiveEmployeePortal onClose={() => setCurrentView('home')} />;
       case 'share':
         return <ShareView onNavigate={setCurrentView} />;
       case 'report':

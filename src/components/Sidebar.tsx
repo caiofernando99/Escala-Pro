@@ -46,8 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'assignment', label: 'Dimensionamento', icon: Shuffle },
     { id: 'breaks', label: 'Intervalos', icon: Clock },
     { id: 'briefing', label: 'Montagem de slide', icon: Presentation },
-    { id: 'portal', label: 'Portal do Colaborador', icon: UserCheck },
-    { id: 'share', label: 'Compartilhar', icon: Share2 },
+    { id: 'share', label: 'Resumo / Compartilhar', icon: Share2 },
     { id: 'report', label: 'Relatório diário', icon: FileText },
     { id: 'settings', label: 'Configurações', icon: Settings },
     { id: 'help', label: 'Ajuda', icon: HelpCircle },
@@ -55,7 +54,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = rawNavItems.filter((item) => {
     if (item.id === 'briefing' && state.showBriefingSlide === false) return false;
-    if (item.id === 'portal' && state.showEmployeePortal === false) return false;
     return true;
   });
 

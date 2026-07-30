@@ -583,7 +583,7 @@ export const SettingsView: React.FC = () => {
               Marque ou desmarque os módulos abaixo conforme a necessidade do seu setor para evitar opções desnecessárias no menu lateral.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 gap-3 pt-1">
               <label className={`p-3.5 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${
                 state.showBriefingSlide !== false
                   ? 'border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--ink)]'
@@ -600,26 +600,6 @@ export const SettingsView: React.FC = () => {
                   type="checkbox"
                   checked={state.showBriefingSlide !== false}
                   onChange={(e) => setModuleVisibility({ showBriefingSlide: e.target.checked })}
-                  className="w-4 h-4 rounded text-[var(--primary)] focus:ring-0 cursor-pointer"
-                />
-              </label>
-
-              <label className={`p-3.5 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${
-                state.showEmployeePortal !== false
-                  ? 'border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--ink)]'
-                  : 'border-[var(--line)] bg-[var(--bg)] text-[var(--muted)]'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <UserCheck className={`w-5 h-5 ${state.showEmployeePortal !== false ? 'text-[var(--primary)]' : 'text-slate-400'}`} />
-                  <div>
-                    <div className="text-xs font-extrabold">Portal do Colaborador</div>
-                    <div className="text-[10px] font-medium opacity-80">Consulta individual online de tarefa e horário de intervalo</div>
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={state.showEmployeePortal !== false}
-                  onChange={(e) => setModuleVisibility({ showEmployeePortal: e.target.checked })}
                   className="w-4 h-4 rounded text-[var(--primary)] focus:ring-0 cursor-pointer"
                 />
               </label>
