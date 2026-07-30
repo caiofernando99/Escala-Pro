@@ -10,23 +10,16 @@ import {
   Download,
   Check,
   Clock,
-  Briefcase,
-  Users,
   Sparkles,
-  Share2,
   ExternalLink,
   FileSpreadsheet,
   RefreshCw,
   Settings,
   CheckCircle2,
-  FileImage,
   ShieldCheck,
-  Eye,
-  EyeOff,
   Filter,
   SlidersHorizontal,
   Layers,
-  ChevronDown,
 } from 'lucide-react';
 import {
   matchesSearch,
@@ -74,9 +67,9 @@ const IMAGE_THEMES: Record<string, ImageThemeConfig> = {
     badgeBg: 'rgba(56, 189, 248, 0.2)',
     badgeText: '#38bdf8',
     headerBg: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-    breakBg: 'rgba(245, 158, 11, 0.12)',
-    breakBorder: 'rgba(245, 158, 11, 0.3)',
-    breakText: '#fbbf24',
+    breakBg: 'rgba(56, 189, 248, 0.12)',
+    breakBorder: 'rgba(56, 189, 248, 0.3)',
+    breakText: '#38bdf8',
   },
   dark: {
     id: 'dark',
@@ -92,9 +85,9 @@ const IMAGE_THEMES: Record<string, ImageThemeConfig> = {
     badgeBg: 'rgba(129, 140, 248, 0.2)',
     badgeText: '#a5b4fc',
     headerBg: 'linear-gradient(135deg, #131b2e 0%, #090d16 100%)',
-    breakBg: 'rgba(245, 158, 11, 0.12)',
-    breakBorder: 'rgba(245, 158, 11, 0.3)',
-    breakText: '#fbbf24',
+    breakBg: 'rgba(129, 140, 248, 0.12)',
+    breakBorder: 'rgba(129, 140, 248, 0.3)',
+    breakText: '#a5b4fc',
   },
   emerald: {
     id: 'emerald',
@@ -110,9 +103,9 @@ const IMAGE_THEMES: Record<string, ImageThemeConfig> = {
     badgeBg: 'rgba(52, 211, 153, 0.2)',
     badgeText: '#6ee7b7',
     headerBg: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
-    breakBg: 'rgba(251, 191, 36, 0.15)',
-    breakBorder: 'rgba(251, 191, 36, 0.35)',
-    breakText: '#fcd34d',
+    breakBg: 'rgba(52, 211, 153, 0.15)',
+    breakBorder: 'rgba(52, 211, 153, 0.35)',
+    breakText: '#34d399',
   },
   indigo: {
     id: 'indigo',
@@ -128,9 +121,9 @@ const IMAGE_THEMES: Record<string, ImageThemeConfig> = {
     badgeBg: 'rgba(168, 85, 247, 0.25)',
     badgeText: '#e9d5ff',
     headerBg: 'linear-gradient(135deg, #312e81 0%, #1e1b4b 100%)',
-    breakBg: 'rgba(245, 158, 11, 0.15)',
-    breakBorder: 'rgba(245, 158, 11, 0.35)',
-    breakText: '#fde047',
+    breakBg: 'rgba(168, 85, 247, 0.15)',
+    breakBorder: 'rgba(168, 85, 247, 0.35)',
+    breakText: '#c084fc',
   },
   light: {
     id: 'light',
@@ -146,9 +139,9 @@ const IMAGE_THEMES: Record<string, ImageThemeConfig> = {
     badgeBg: '#e0e7ff',
     badgeText: '#1d4ed8',
     headerBg: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)',
-    breakBg: '#fffbe6',
-    breakBorder: '#fde68a',
-    breakText: '#b45309',
+    breakBg: '#eff6ff',
+    breakBorder: '#bfdbfe',
+    breakText: '#1d4ed8',
   },
 };
 
@@ -213,8 +206,34 @@ export const ShareView: React.FC<ShareViewProps> = () => {
   });
 
   const getBreakTime = (personId: string) => {
-    const slot = state.breaks.find((b) => (dayIntervals[b.id] || []).includes(personId));
-    return slot ? slot.time : 'Sem Intervalo';
+    const slot = (state.breaks || []).find((b) => (dayIntervals[b.id] || []).includes(personId));
+    return slot ? slot.time : 'Sem Horário Definido';
+  };
+
+  // Helper to group task members by break time slot
+  const groupTaskMembersByBreakTime = (taskMembers: typeof state.collaborators) => {
+    const map = new Map<string, typeof state.collaborators>();
+
+    taskMembers.forEach((person) => {
+      const time = getBreakTime(person.id);
+      if (!map.has(time)) {
+        map.set(time, []);
+      }
+      map.get(time)!.push(person);
+    });
+
+    const result: Array<{ timeLabel: string; members: typeof state.collaborators }> = [];
+    map.forEach((members, timeLabel) => {
+      result.push({ timeLabel, members });
+    });
+
+    result.sort((a, b) => {
+      if (a.timeLabel.includes('Sem Horário')) return 1;
+      if (b.timeLabel.includes('Sem Horário')) return -1;
+      return a.timeLabel.localeCompare(b.timeLabel);
+    });
+
+    return result;
   };
 
   // Compute filtered tasks & assigned members
@@ -257,6 +276,7 @@ export const ShareView: React.FC<ShareViewProps> = () => {
         allowTaint: true,
         backgroundColor: activeTheme.bg,
         logging: false,
+        windowWidth: 1280,
       });
 
       const dataUrl = canvas.toDataURL('image/png');
@@ -280,11 +300,12 @@ export const ShareView: React.FC<ShareViewProps> = () => {
     try {
       showNotice('Renderizando imagem para a área de transferência...');
       const canvas = await html2canvas(cardImageRef.current, {
-        scale: 2,
+        scale: 2.5,
         useCORS: true,
         allowTaint: true,
         backgroundColor: activeTheme.bg,
         logging: false,
+        windowWidth: 1280,
       });
 
       canvas.toBlob(async (blob) => {
@@ -333,18 +354,22 @@ export const ShareView: React.FC<ShareViewProps> = () => {
     text += `\n`;
 
     displayedTasks.forEach((t) => {
-      text += `*🔹 ${t.name.toUpperCase()}* (${t.filteredMembers.length} pessoas)\n`;
+      text += `*🔹 ${t.name.toUpperCase()}* (${t.filteredMembers.length})\n`;
       if (t.filteredMembers.length === 0) {
         text += `   _(Sem colaboradores)_\n`;
+      } else if (includeBreaks) {
+        const timeGroups = groupTaskMembersByBreakTime(t.filteredMembers);
+        timeGroups.forEach((g) => {
+          text += `   🕒 *${mealTitle}: ${g.timeLabel}*\n`;
+          g.members.forEach((m) => {
+            const nameStr = abbreviateNamesToggle ? abbreviateName(m.name, true) : m.name;
+            text += `     • *${nameStr}* (${m.role || 'Operador'})\n`;
+          });
+        });
       } else {
         t.filteredMembers.forEach((m) => {
           const nameStr = abbreviateNamesToggle ? abbreviateName(m.name, true) : m.name;
-          if (includeBreaks) {
-            const breakTime = getBreakTime(m.id);
-            text += `   • *${nameStr}* (${m.role || 'Operador'}) ➔ 🕒 ${mealTitle}: *${breakTime}*\n`;
-          } else {
-            text += `   • *${nameStr}* (${m.role || 'Operador'})\n`;
-          }
+          text += `   • *${nameStr}* (${m.role || 'Operador'})\n`;
         });
       }
       text += `\n`;
@@ -485,7 +510,7 @@ export const ShareView: React.FC<ShareViewProps> = () => {
         </div>
       </div>
 
-      {/* MAIN CONFIGURATION & CONTROLS PANEL (FOLLOWS BRIEFING SLIDE LOGIC) */}
+      {/* MAIN CONFIGURATION & CONTROLS PANEL */}
       <div className="no-print bg-[var(--paper)] border border-[var(--line)] p-4 rounded-2xl shadow-2xs space-y-3.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--line)] pb-2.5">
           <div className="flex items-center gap-2">
@@ -530,7 +555,7 @@ export const ShareView: React.FC<ShareViewProps> = () => {
           {/* 1. Toggle Include Breaks */}
           <div className="bg-[var(--bg)] border border-[var(--line)] p-3 rounded-xl space-y-2">
             <span className="block font-extrabold text-[var(--ink)] text-[11px] flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-amber-500" />
+              <Clock className="w-3.5 h-3.5 text-[var(--primary)]" />
               <span>Intervalos & Refeições</span>
             </span>
 
@@ -542,7 +567,7 @@ export const ShareView: React.FC<ShareViewProps> = () => {
                 className="w-4 h-4 rounded text-[var(--primary)] focus:ring-0 cursor-pointer"
               />
               <span className="font-bold text-[11px] text-[var(--ink)]">
-                Incluir horários de intervalo na imagem
+                Exibir intervalos separados nos cards
               </span>
             </label>
 
@@ -555,7 +580,7 @@ export const ShareView: React.FC<ShareViewProps> = () => {
                     onClick={() => setMealTypeLabel(lbl)}
                     className={`px-2 py-0.5 rounded text-[10px] font-extrabold cursor-pointer transition-all uppercase ${
                       mealTypeLabel === lbl
-                        ? 'bg-amber-500 text-slate-950 font-black'
+                        ? 'bg-[var(--primary)] text-white font-black'
                         : 'bg-[var(--paper)] text-[var(--muted)] hover:text-[var(--ink)]'
                     }`}
                   >
@@ -601,7 +626,7 @@ export const ShareView: React.FC<ShareViewProps> = () => {
           {/* 3. Theme Selector */}
           <div className="bg-[var(--bg)] border border-[var(--line)] p-3 rounded-xl space-y-1.5 sm:col-span-2">
             <span className="block font-extrabold text-[var(--ink)] text-[11px] flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+              <Sparkles className="w-3.5 h-3.5 text-[var(--primary)]" />
               <span>Tema Visual da Imagem (Combina com a Aplicação)</span>
             </span>
 
@@ -627,7 +652,7 @@ export const ShareView: React.FC<ShareViewProps> = () => {
           </div>
         </div>
 
-        {/* FILTERS BAR (BRIEFING SLIDE LOGIC) */}
+        {/* FILTERS BAR */}
         <div className="flex flex-wrap items-center gap-2 bg-[var(--bg)] p-2.5 rounded-xl border border-[var(--line)] text-xs">
           <div className="flex items-center gap-1 text-[var(--muted)] font-bold shrink-0">
             <Filter className="w-3.5 h-3.5 text-[var(--primary)]" />
@@ -691,12 +716,14 @@ export const ShareView: React.FC<ShareViewProps> = () => {
       <div className="bg-slate-950/20 p-3 sm:p-6 rounded-3xl border border-[var(--line)] flex justify-center overflow-x-auto shadow-inner">
         <div
           ref={cardImageRef}
-          className="w-full max-w-[760px] p-6 rounded-2xl shadow-2xl space-y-5 transition-colors duration-200"
+          className="p-6 rounded-2xl shadow-2xl space-y-5 transition-colors duration-200 shrink-0"
           style={{
             backgroundColor: activeTheme.bg,
             color: activeTheme.text,
             border: `1.5px solid ${activeTheme.border}`,
             fontFamily: 'system-ui, -apple-system, sans-serif',
+            boxSizing: 'border-box',
+            width: '800px',
           }}
         >
           {/* HEADER SECTION */}
@@ -705,21 +732,18 @@ export const ShareView: React.FC<ShareViewProps> = () => {
             style={{
               background: activeTheme.headerBg,
               borderColor: activeTheme.border,
+              boxSizing: 'border-box',
             }}
           >
-            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest" style={{ color: activeTheme.accent }}>
-              <span className="flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Briefing & Dimensionamento</span>
-              </span>
+            <div className="flex items-center justify-end text-[10px] font-black uppercase tracking-widest" style={{ color: activeTheme.accent, lineHeight: '1.4' }}>
               <span>{state.sector || 'Operacional'}</span>
             </div>
 
-            <h2 className="text-lg font-black uppercase tracking-wide" style={{ color: activeTheme.text }}>
+            <h2 className="text-lg font-black uppercase tracking-wide" style={{ color: activeTheme.text, lineHeight: '1.3' }}>
               {state.teamName || 'ESCALA OPERACIONAL DE TRABALHO'}
             </h2>
 
-            <p className="text-xs font-bold" style={{ color: activeTheme.mutedText }}>
+            <p className="text-xs font-bold" style={{ color: activeTheme.mutedText, lineHeight: '1.4' }}>
               {formatDateLongBR(activeDate)} • Turno {state.teamShift || 'T2'}
             </p>
 
@@ -730,6 +754,7 @@ export const ShareView: React.FC<ShareViewProps> = () => {
                   backgroundColor: activeTheme.badgeBg,
                   color: activeTheme.badgeText,
                   borderColor: activeTheme.border,
+                  lineHeight: '1.4',
                 }}
               >
                 {presentPeople.length} Presentes
@@ -737,26 +762,29 @@ export const ShareView: React.FC<ShareViewProps> = () => {
 
               {includeBreaks && (
                 <span
-                  className="px-2.5 py-0.5 rounded-md border text-[11px]"
+                  className="px-2.5 py-0.5 rounded-md border text-[11px] flex items-center gap-1"
                   style={{
                     backgroundColor: activeTheme.breakBg,
                     color: activeTheme.breakText,
                     borderColor: activeTheme.breakBorder,
+                    lineHeight: '1.4',
                   }}
                 >
-                  🕒 Horários de Refeição
+                  <Clock className="w-3 h-3" />
+                  <span>Horários de {mealTypeLabel === 'almoco' ? 'Almoço' : mealTypeLabel === 'janta' ? 'Janta' : 'Refeição'}</span>
                 </span>
               )}
             </div>
           </div>
 
           {/* SECTION 1: TASKS ALLOCATION */}
-          <div className="space-y-3">
+          <div className="space-y-3" style={{ boxSizing: 'border-box' }}>
             <div
               className="text-xs font-black uppercase tracking-wider pb-1.5 border-b flex items-center justify-between"
               style={{
                 color: activeTheme.accent,
                 borderColor: activeTheme.border,
+                lineHeight: '1.4',
               }}
             >
               <span>1. Dimensionamento de Tarefas</span>
@@ -767,75 +795,138 @@ export const ShareView: React.FC<ShareViewProps> = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {displayedTasks.map((task) => {
+                const timeGroups = groupTaskMembersByBreakTime(task.filteredMembers);
+
                 return (
                   <div
                     key={task.id}
-                    className="p-3 rounded-xl border space-y-2 shadow-sm"
+                    className="p-3.5 rounded-2xl border space-y-2.5 shadow-sm"
                     style={{
                       backgroundColor: activeTheme.cardBg,
                       borderColor: activeTheme.border,
+                      boxSizing: 'border-box',
                     }}
                   >
+                    {/* Task Header - Badge displays ONLY the number */}
                     <div
-                      className="flex items-center justify-between pb-1.5 border-b"
+                      className="flex items-center justify-between pb-2 border-b"
                       style={{ borderColor: activeTheme.border }}
                     >
-                      <h4 className="font-black text-xs uppercase tracking-wide" style={{ color: activeTheme.text }}>
+                      <h4
+                        className="font-black text-xs uppercase tracking-wide pr-1"
+                        style={{ color: activeTheme.text, lineHeight: '1.4' }}
+                      >
                         {task.name}
                       </h4>
                       <span
-                        className="px-2 py-0.2 rounded text-[10px] font-black"
+                        className="px-2.5 py-0.5 rounded-full text-xs font-black shrink-0"
                         style={{
                           backgroundColor: activeTheme.badgeBg,
                           color: activeTheme.badgeText,
+                          lineHeight: '1.3',
                         }}
                       >
                         {task.filteredMembers.length}
                       </span>
                     </div>
 
-                    <div className="space-y-1">
+                    {/* Task Collaborators */}
+                    <div className="space-y-2">
                       {task.filteredMembers.length > 0 ? (
-                        task.filteredMembers.map((m) => {
-                          const breakTime = getBreakTime(m.id);
-                          const displayName = abbreviateNamesToggle
-                            ? abbreviateName(m.name, true)
-                            : m.name;
-
-                          return (
-                            <div
-                              key={m.id}
-                              className="p-1.5 rounded-lg border flex items-center justify-between text-[11px]"
-                              style={{
-                                backgroundColor: activeTheme.itemBg,
-                                borderColor: activeTheme.border,
-                              }}
-                            >
-                              <div className="min-w-0 pr-1 truncate">
-                                <span className="font-extrabold" style={{ color: activeTheme.text }}>
-                                  {displayName}
-                                </span>
-                                <span className="text-[9px] block" style={{ color: activeTheme.mutedText }}>
-                                  {m.role || 'Operador'}
-                                </span>
-                              </div>
-
-                              {includeBreaks && (
+                        includeBreaks ? (
+                          timeGroups.map((group, idx) => (
+                            <div key={idx} className="space-y-1.5">
+                              {/* Centered Break Time Divider Badge - Matches Theme Accent */}
+                              <div className="flex items-center gap-1.5 my-1.5">
+                                <div className="h-px flex-1" style={{ backgroundColor: activeTheme.border }} />
                                 <span
-                                  className="px-1.5 py-0.5 rounded text-[10px] font-black shrink-0 border flex items-center gap-1"
+                                  className="px-2.5 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 shrink-0 border"
                                   style={{
                                     backgroundColor: activeTheme.breakBg,
                                     borderColor: activeTheme.breakBorder,
                                     color: activeTheme.breakText,
+                                    lineHeight: '1.4',
                                   }}
                                 >
-                                  <Clock className="w-2.5 h-2.5" />
-                                  <span>{breakTime}</span>
+                                  <Clock className="w-3 h-3 shrink-0" />
+                                  <span>{group.timeLabel} ({group.members.length})</span>
                                 </span>
-                              )}
+                                <div className="h-px flex-1" style={{ backgroundColor: activeTheme.border }} />
+                              </div>
+
+                              {/* Members Grid in Slot */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                {group.members.map((m) => {
+                                  const displayName = abbreviateNamesToggle
+                                    ? abbreviateName(m.name, true)
+                                    : m.name;
+
+                                  return (
+                                    <div
+                                      key={m.id}
+                                      className="p-2 rounded-xl border text-xs"
+                                      style={{
+                                        backgroundColor: activeTheme.itemBg,
+                                        borderColor: activeTheme.border,
+                                        boxSizing: 'border-box',
+                                      }}
+                                    >
+                                      <div className="min-w-0">
+                                        <span
+                                          className="font-extrabold block text-xs"
+                                          style={{ color: activeTheme.text, lineHeight: '1.4' }}
+                                        >
+                                          {displayName}
+                                        </span>
+                                        <span
+                                          className="text-[10px] block font-medium"
+                                          style={{ color: activeTheme.mutedText, lineHeight: '1.3' }}
+                                        >
+                                          {m.role || 'Operador'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          );
-                        })
+                          ))
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            {task.filteredMembers.map((m) => {
+                              const displayName = abbreviateNamesToggle
+                                ? abbreviateName(m.name, true)
+                                : m.name;
+
+                              return (
+                                <div
+                                  key={m.id}
+                                  className="p-2 rounded-xl border text-xs"
+                                  style={{
+                                    backgroundColor: activeTheme.itemBg,
+                                    borderColor: activeTheme.border,
+                                    boxSizing: 'border-box',
+                                  }}
+                                >
+                                  <div className="min-w-0">
+                                    <span
+                                      className="font-extrabold block text-xs"
+                                      style={{ color: activeTheme.text, lineHeight: '1.4' }}
+                                    >
+                                      {displayName}
+                                    </span>
+                                    <span
+                                      className="text-[10px] block font-medium"
+                                      style={{ color: activeTheme.mutedText, lineHeight: '1.3' }}
+                                    >
+                                      {m.role || 'Operador'}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )
                       ) : (
                         <p className="text-[10px] italic p-1 text-center" style={{ color: activeTheme.mutedText }}>
                           Nenhum colaborador atribuído.
@@ -848,17 +939,18 @@ export const ShareView: React.FC<ShareViewProps> = () => {
             </div>
           </div>
 
-          {/* SECTION 2: BREAKS TABLE (IF ENABLED) */}
+          {/* SECTION 2: BREAKS SUMMARY TABLE - Clean text rendering to eliminate baseline clipping */}
           {includeBreaks && (
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-2" style={{ boxSizing: 'border-box' }}>
               <div
                 className="text-xs font-black uppercase tracking-wider pb-1.5 border-b flex items-center justify-between"
                 style={{
                   color: activeTheme.breakText,
                   borderColor: activeTheme.border,
+                  lineHeight: '1.4',
                 }}
               >
-                <span>2. Escala de Horários de Intervalo e Refeição</span>
+                <span>2. Escala Geral de Horários de {mealTypeLabel === 'almoco' ? 'Almoço' : mealTypeLabel === 'janta' ? 'Janta' : 'Refeição'}</span>
                 <span className="text-[10px]" style={{ color: activeTheme.mutedText }}>
                   Turno {state.teamShift || 'Geral'}
                 </span>
@@ -876,27 +968,37 @@ export const ShareView: React.FC<ShareViewProps> = () => {
                   return (
                     <div
                       key={slot.id}
-                      className="p-2.5 rounded-xl border space-y-1.5"
+                      className="p-3 rounded-xl border space-y-2"
                       style={{
                         backgroundColor: activeTheme.cardBg,
                         borderColor: activeTheme.breakBorder,
+                        boxSizing: 'border-box',
                       }}
                     >
                       <div
-                        className="flex items-center justify-between text-[11px] font-black pb-1 border-b"
+                        className="flex items-center justify-between text-xs font-black pb-1.5 border-b"
                         style={{
                           color: activeTheme.breakText,
                           borderColor: activeTheme.border,
+                          lineHeight: '1.4',
                         }}
                       >
                         <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
+                          <Clock className="w-3.5 h-3.5" />
                           <span>{slot.time}</span>
                         </span>
-                        <span>{membersInSlot.length}p</span>
+                        <span
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                          style={{
+                            backgroundColor: activeTheme.breakBg,
+                            color: activeTheme.breakText,
+                          }}
+                        >
+                          {membersInSlot.length}p
+                        </span>
                       </div>
 
-                      <div className="space-y-1 pt-0.5">
+                      <div className="space-y-1.5 pt-1 pb-1">
                         {membersInSlot.map((m) => {
                           const nameStr = abbreviateNamesToggle
                             ? abbreviateName(m.name, true)
@@ -904,10 +1006,11 @@ export const ShareView: React.FC<ShareViewProps> = () => {
                           return (
                             <div
                               key={m.id}
-                              className="text-[10px] font-bold truncate"
-                              style={{ color: activeTheme.text }}
+                              className="text-xs font-bold flex items-center gap-1.5"
+                              style={{ color: activeTheme.text, lineHeight: '1.5' }}
                             >
-                              • {nameStr}
+                              <span style={{ color: activeTheme.accent }}>•</span>
+                              <span>{nameStr}</span>
                             </div>
                           );
                         })}
@@ -922,7 +1025,7 @@ export const ShareView: React.FC<ShareViewProps> = () => {
           {/* FOOTER & SECURITY GUIDELINE */}
           <div
             className="pt-3 border-t space-y-1 text-center text-[10px]"
-            style={{ borderColor: activeTheme.border }}
+            style={{ borderColor: activeTheme.border, boxSizing: 'border-box' }}
           >
             <div
               className="p-2 rounded-xl font-bold flex items-center justify-center gap-1.5"
@@ -930,13 +1033,14 @@ export const ShareView: React.FC<ShareViewProps> = () => {
                 backgroundColor: activeTheme.accentBg,
                 color: activeTheme.accent,
                 border: `1px solid ${activeTheme.border}`,
+                lineHeight: '1.4',
               }}
             >
               <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
               <span>Obrigatório o uso de EPIs completos. Mantenha a qualidade e segurança na operação.</span>
             </div>
 
-            <div className="pt-1 text-[9px] font-semibold opacity-70" style={{ color: activeTheme.mutedText }}>
+            <div className="pt-1 text-[9px] font-semibold opacity-70" style={{ color: activeTheme.mutedText, lineHeight: '1.4' }}>
               Transmissão via EscalaPro • {formatDateBR(activeDate)}
             </div>
           </div>
